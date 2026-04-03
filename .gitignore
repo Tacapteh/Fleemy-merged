@@ -1,0 +1,10 @@
+node_modules/
+.env.local
+.env
+__pycache__/
+*.pyc
+frontend/dist/
+frontend/.env.local
+*.egg-info/
+.venv/
+backend/serviceAccountKey.json
