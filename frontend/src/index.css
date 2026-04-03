@@ -8,6 +8,5 @@
 
 body {
   margin: 0;
-  background-color: #09090b;
-  color: #fafafa;
+  @apply bg-zinc-950 text-zinc-50;
 }
