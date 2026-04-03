@@ -8,7 +8,7 @@ import { db } from '../services/firebase'
 import { useAuth } from './useAuth'
 import type { Transaction } from '../types'
 
-export function useBudget() {
+function useBudgetFirestore() {
   const { user } = useAuth()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,3 +40,7 @@ export function useBudget() {
 
   return { transactions, loading, addTransaction, updateTransaction, deleteTransaction }
 }
+
+import { useMockBudget } from '../mocks/hooks'
+const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+export const useBudget = _MOCK ? useMockBudget : useBudgetFirestore

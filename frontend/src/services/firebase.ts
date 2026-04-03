@@ -1,7 +1,9 @@
 // frontend/src/services/firebase.ts
-import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { initializeApp, type FirebaseApp } from 'firebase/app'
+import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth'
+import { getFirestore, type Firestore } from 'firebase/firestore'
+
+const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -12,9 +14,8 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
-// Fail fast si la config est incomplète (sauf en mode placeholder)
-const isPlaceholder = firebaseConfig.projectId === 'placeholder'
-if (!isPlaceholder) {
+// Fail fast si la config est incomplète — sauf en mode démo
+if (!MOCK) {
   const missingKeys = Object.entries(firebaseConfig)
     .filter(([, v]) => !v)
     .map(([k]) => k)
@@ -25,7 +26,10 @@ if (!isPlaceholder) {
   }
 }
 
-export const app = initializeApp(firebaseConfig)
-export const auth = getAuth(app)
-export const db = getFirestore(app)
+export const app: FirebaseApp = MOCK
+  ? {} as FirebaseApp
+  : initializeApp(firebaseConfig)
+
+export const auth: Auth = MOCK ? {} as Auth : getAuth(app)
+export const db: Firestore = MOCK ? {} as Firestore : getFirestore(app)
 export const googleProvider = new GoogleAuthProvider()

@@ -8,7 +8,7 @@ import { db } from '../services/firebase'
 import { useAuth } from './useAuth'
 import type { Note } from '../types'
 
-export function useNotes() {
+function useNotesFirestore() {
   const { user } = useAuth()
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,3 +40,7 @@ export function useNotes() {
 
   return { notes, loading, addNote, updateNote, deleteNote }
 }
+
+import { useMockNotes } from '../mocks/hooks'
+const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+export const useNotes = _MOCK ? useMockNotes : useNotesFirestore
