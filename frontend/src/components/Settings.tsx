@@ -278,8 +278,10 @@ export function Settings() {
               ))}
             </div>
             {team.ownerId !== user?.uid && (
-              <button onClick={leaveTeam}
-                className="text-xs text-red-400 hover:text-red-300 transition-colors">
+              <button
+                onClick={async () => { await leaveTeam(); toast('Vous avez quitté l\'équipe') }}
+                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+              >
                 Quitter l'équipe
               </button>
             )}

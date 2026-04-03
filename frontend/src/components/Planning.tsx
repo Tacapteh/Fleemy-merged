@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react'
-import { Plus, X, ChevronLeft, ChevronRight, Trash2, Clock, Flag } from 'lucide-react'
+import { Plus, X, ChevronLeft, ChevronRight, Trash2, Clock, Flag, Calendar } from 'lucide-react'
 import { useTasks } from '../hooks/useTasks'
 import { useEvents } from '../hooks/useEvents'
 import { useClients } from '../hooks/useClients'
+import { useToast } from '../context/ToastContext'
+import { EmptyState } from './ui/EmptyState'
 import { format, addDays, startOfWeek, parseISO, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { TaskItem, EventItem } from '../types'
@@ -25,6 +27,7 @@ export function Planning() {
   const { tasks, addTask, updateTask, deleteTask } = useTasks()
   const { events, addEvent, deleteEvent } = useEvents()
   const { clients } = useClients()
+  const { toast } = useToast()
 
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<ViewMode>('week')
@@ -84,6 +87,7 @@ export function Planning() {
       progress: 0,
       tags: [],
     } as Omit<TaskItem, 'id'>)
+    toast('Tâche créée')
     setShowModal(false)
     setTaskForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', priority: 2, status: 'todo', description: '' })
   }
@@ -96,6 +100,7 @@ export function Planning() {
       type: 'event',
       clientName: client?.name,
     } as Omit<EventItem, 'id'>)
+    toast('Créneau créé')
     setShowModal(false)
     setEventForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid' })
   }
@@ -166,7 +171,7 @@ export function Planning() {
                   >
                     <span className="truncate">{e.startTime} {e.title}</span>
                     <button
-                      onClick={ev => { ev.stopPropagation(); deleteEvent(e.id) }}
+                      onClick={ev => { ev.stopPropagation(); deleteEvent(e.id); toast('Créneau supprimé') }}
                       className="opacity-0 group-hover:opacity-100 ml-1 shrink-0"
                     >
                       <X size={10} />
@@ -182,11 +187,11 @@ export function Planning() {
                     <span className="truncate">{t.title}</span>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 ml-1">
                       {t.status !== 'done' && (
-                        <button onClick={() => updateTask(t.id, { status: 'done' })} title="Marquer terminé">
+                        <button onClick={() => { updateTask(t.id, { status: 'done' }); toast('Tâche terminée') }} title="Marquer terminé">
                           ✓
                         </button>
                       )}
-                      <button onClick={() => deleteTask(t.id)}>
+                      <button onClick={() => { deleteTask(t.id); toast('Tâche supprimée') }}>
                         <X size={10} />
                       </button>
                     </div>
@@ -206,12 +211,16 @@ export function Planning() {
         </div>
         <div className="divide-y divide-zinc-800">
           {tasks.length === 0 ? (
-            <p className="p-4 text-sm text-zinc-600">Aucune tâche</p>
+            <EmptyState
+              icon={<Calendar size={32} />}
+              title="Aucune tâche"
+              description="Cliquez sur une case du calendrier ou sur « Tâche » pour commencer."
+            />
           ) : (
             tasks.map(t => (
               <div key={t.id} className="p-4 flex items-center gap-3 group">
                 <button
-                  onClick={() => updateTask(t.id, { status: t.status === 'done' ? 'todo' : 'done' })}
+                  onClick={() => { const next = t.status === 'done' ? 'todo' : 'done'; updateTask(t.id, { status: next }); if (next === 'done') toast('Tâche terminée') }}
                   className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                     t.status === 'done' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-zinc-600 hover:border-emerald-500'
                   }`}
@@ -235,7 +244,7 @@ export function Planning() {
                   </div>
                 </div>
                 <button
-                  onClick={() => deleteTask(t.id)}
+                  onClick={() => { deleteTask(t.id); toast('Tâche supprimée') }}
                   className="opacity-0 group-hover:opacity-100 p-1 text-zinc-600 hover:text-red-400 transition-colors"
                 >
                   <Trash2 size={14} />

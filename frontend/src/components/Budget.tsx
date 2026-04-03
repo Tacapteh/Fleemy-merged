@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Plus, X, Trash2, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react'
+import { Plus, X, Trash2, TrendingUp, TrendingDown, PiggyBank, Receipt } from 'lucide-react'
 import { useBudget } from '../hooks/useBudget'
+import { useToast } from '../context/ToastContext'
+import { EmptyState } from './ui/EmptyState'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { format, startOfMonth, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -24,6 +26,7 @@ const CATEGORIES = ['Salaire', 'Freelance', 'Loyer', 'Alimentation', 'Transport'
 
 export function Budget() {
   const { transactions, addTransaction, deleteTransaction } = useBudget()
+  const { toast } = useToast()
 
   const [showForm, setShowForm] = useState(false)
   const [filterType, setFilterType] = useState<TxType | 'all'>('all')
@@ -67,6 +70,7 @@ export function Budget() {
   const handleAdd = async () => {
     if (!form.description.trim() || form.amount <= 0) return
     await addTransaction(form)
+    toast('Transaction ajoutée')
     setForm({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, category: 'Autre', type: 'income', description: '' })
     setShowForm(false)
   }
@@ -147,7 +151,11 @@ export function Budget() {
         </div>
         <div className="divide-y divide-zinc-800 max-h-80 overflow-y-auto">
           {filtered.length === 0 ? (
-            <p className="p-4 text-sm text-zinc-600">Aucune transaction</p>
+            <EmptyState
+              icon={<Receipt size={28} />}
+              title="Aucune transaction"
+              description="Ajoutez votre première transaction pour suivre vos revenus et dépenses."
+            />
           ) : (
             [...filtered].sort((a, b) => b.date.localeCompare(a.date)).map(t => (
               <div key={t.id} className="p-4 flex items-center gap-3 group">
@@ -162,7 +170,7 @@ export function Budget() {
                   {t.type === 'expense' ? '-' : '+'}{t.amount.toLocaleString('fr-FR')} €
                 </span>
                 <button
-                  onClick={() => deleteTransaction(t.id)}
+                  onClick={() => { if (window.confirm('Supprimer cette transaction ?')) { deleteTransaction(t.id); toast('Transaction supprimée') } }}
                   className="opacity-0 group-hover:opacity-100 p-1 text-zinc-600 hover:text-red-400 transition-colors"
                 >
                   <Trash2 size={14} />

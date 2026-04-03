@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Plus, X, Trash2, Search, Flag, CheckSquare, Square } from 'lucide-react'
+import { Plus, X, Trash2, Search, Flag, CheckSquare, Square, StickyNote } from 'lucide-react'
 import { useNotes } from '../hooks/useNotes'
+import { useToast } from '../context/ToastContext'
+import { EmptyState } from './ui/EmptyState'
 import type { Note } from '../types'
 
 type FilterType = 'all' | 'done' | 'pending'
@@ -14,6 +16,7 @@ const PRIORITY_COLOR: Record<number, string> = {
 
 export function Notes() {
   const { notes, addNote, updateNote, deleteNote } = useNotes()
+  const { toast } = useToast()
 
   const [filter, setFilter] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
@@ -60,8 +63,10 @@ export function Notes() {
     }
     if (editingId) {
       await updateNote(editingId, data)
+      toast('Note mise à jour')
     } else {
       await addNote(data)
+      toast('Note créée')
     }
     setShowForm(false)
   }
@@ -126,9 +131,16 @@ export function Notes() {
 
       {/* Notes grid */}
       {filtered.length === 0 ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 text-center">
-          <p className="text-zinc-500 text-sm">Aucune note</p>
-        </div>
+        <EmptyState
+          icon={<StickyNote size={32} />}
+          title="Aucune note"
+          description="Créez votre première note pour garder une trace de vos idées."
+          action={
+            <button onClick={openAdd} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors">
+              Nouvelle note
+            </button>
+          }
+        />
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(note => (
@@ -141,7 +153,7 @@ export function Notes() {
             >
               <div className="flex items-start justify-between mb-2">
                 <button
-                  onClick={e => { e.stopPropagation(); updateNote(note.id, { isDone: !note.isDone }) }}
+                  onClick={e => { e.stopPropagation(); updateNote(note.id, { isDone: !note.isDone }); toast(note.isDone ? 'Note réouverte' : 'Note terminée') }}
                   className="shrink-0 mr-2 text-zinc-500 hover:text-emerald-400 transition-colors"
                 >
                   {note.isDone ? <CheckSquare size={16} className="text-emerald-400" /> : <Square size={16} />}
@@ -150,7 +162,7 @@ export function Notes() {
                   {note.title}
                 </h3>
                 <button
-                  onClick={e => { e.stopPropagation(); deleteNote(note.id) }}
+                  onClick={e => { e.stopPropagation(); if (window.confirm('Supprimer cette note ?')) { deleteNote(note.id); toast('Note supprimée') } }}
                   className="opacity-0 group-hover:opacity-100 ml-2 text-zinc-600 hover:text-red-400 transition-colors"
                 >
                   <Trash2 size={14} />
