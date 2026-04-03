@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Plus, X, Trash2, Edit2, Mail, Phone, Building2, Search } from 'lucide-react'
+import { Plus, X, Trash2, Edit2, Mail, Phone, Building2, Search, Users } from 'lucide-react'
 import { useClients } from '../hooks/useClients'
 import { useToast } from '../context/ToastContext'
+import { EmptyState } from './ui/EmptyState'
 import type { Client } from '../types'
 
 type StatusFilter = 'all' | 'active' | 'lead' | 'inactive'
@@ -117,9 +118,16 @@ export function Clients() {
 
       {/* Client cards */}
       {filtered.length === 0 ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 text-center">
-          <p className="text-zinc-500 text-sm">Aucun client trouvé</p>
-        </div>
+        <EmptyState
+          icon={<Users size={32} />}
+          title="Aucun client"
+          description={search ? 'Aucun résultat pour cette recherche.' : 'Ajoutez votre premier client pour commencer.'}
+          action={!search ? (
+            <button onClick={openAddModal} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors">
+              Nouveau client
+            </button>
+          ) : undefined}
+        />
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(client => (
@@ -167,7 +175,7 @@ export function Clients() {
                   <Edit2 size={12} /> Modifier
                 </button>
                 <button
-                  onClick={() => deleteClient(client.id)}
+                  onClick={() => { if (window.confirm(`Supprimer ${client.name} ?`)) { deleteClient(client.id); toast('Client supprimé') } }}
                   className="p-1.5 rounded-lg bg-zinc-800 hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-colors"
                 >
                   <Trash2 size={14} />

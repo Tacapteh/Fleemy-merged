@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react'
-import { Plus, X, Trash2, FileText, Download, Send, Eye } from 'lucide-react'
+import { Plus, X, Trash2, FileText, Download, Send } from 'lucide-react'
 import { useDocuments } from '../hooks/useDocuments'
 import { useClients } from '../hooks/useClients'
+import { useToast } from '../context/ToastContext'
+import { EmptyState } from './ui/EmptyState'
 import { apiClient } from '../services/api'
 import type { Document as FleemyDocument, DocumentItem } from '../types'
 
@@ -31,6 +33,7 @@ const EMPTY_ITEM: DocumentItem = { description: '', quantity: 1, unitPrice: 0, t
 export function Documents() {
   const { documents, addDocument, updateDocument, deleteDocument } = useDocuments()
   const { clients } = useClients()
+  const { toast } = useToast()
 
   const [showModal, setShowModal] = useState(false)
   const [filterType, setFilterType] = useState<DocType | 'all'>('all')
@@ -80,6 +83,7 @@ export function Documents() {
       notes: form.notes || undefined,
       totalAmount,
     })
+    toast('Document créé')
     setShowModal(false)
     setForm({ type: 'invoice', clientId: '', date: new Date().toISOString().split('T')[0], dueDate: '', notes: '', items: [{ ...EMPTY_ITEM }] })
   }
@@ -93,8 +97,9 @@ export function Documents() {
       a.download = `${doc.type}-${doc.id}.pdf`
       a.click()
       URL.revokeObjectURL(url)
+      toast('PDF téléchargé')
     } catch {
-      alert('Backend non disponible — génération PDF impossible pour l\'instant.')
+      toast('Backend non disponible — PDF impossible', 'error')
     }
   }
 
@@ -102,8 +107,9 @@ export function Documents() {
     try {
       await apiClient.post(`/documents/${doc.id}/send-email`)
       await updateDocument(doc.id, { status: 'sent' })
+      toast('Email envoyé')
     } catch {
-      alert('Backend non disponible — envoi email impossible pour l\'instant.')
+      toast('Backend non disponible — email impossible', 'error')
     }
   }
 
@@ -151,10 +157,16 @@ export function Documents() {
 
       {/* Documents list */}
       {filtered.length === 0 ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 text-center">
-          <FileText size={32} className="text-zinc-700 mx-auto mb-2" />
-          <p className="text-zinc-500 text-sm">Aucun document</p>
-        </div>
+        <EmptyState
+          icon={<FileText size={32} />}
+          title="Aucun document"
+          description="Créez votre première facture ou votre premier devis."
+          action={
+            <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors">
+              Nouveau document
+            </button>
+          }
+        />
       ) : (
         <div className="space-y-2">
           {filtered.map(doc => (
@@ -186,14 +198,16 @@ export function Documents() {
                 <select
                   className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-xs text-zinc-300 focus:outline-none"
                   value={doc.status}
-                  onChange={e => updateDocument(doc.id, { status: e.target.value as DocStatus })}
+                  onChange={e => { updateDocument(doc.id, { status: e.target.value as DocStatus }); toast('Statut mis à jour') }}
                 >
                   {(Object.keys(STATUS_LABELS) as DocStatus[]).map(s => (
                     <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                   ))}
                 </select>
-                <button onClick={() => deleteDocument(doc.id)}
-                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-colors">
+                <button
+                  onClick={() => { if (window.confirm('Supprimer ce document définitivement ?')) { deleteDocument(doc.id); toast('Document supprimé') } }}
+                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-red-500/20 text-zinc-500 hover:text-red-400 transition-colors"
+                >
                   <Trash2 size={14} />
                 </button>
               </div>
