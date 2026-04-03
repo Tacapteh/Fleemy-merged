@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   LogOut,
+  type LucideIcon,
 } from 'lucide-react'
 import type { User } from 'firebase/auth'
 import { useAuth } from '../hooks/useAuth'
@@ -24,7 +25,7 @@ interface SidebarProps {
   user: User
 }
 
-const navItems: { id: Tab; label: string; icon: React.FC<{ size?: number }> }[] = [
+const navItems: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'planning', label: 'Planning', icon: Calendar },
   { id: 'budget', label: 'Budget', icon: DollarSign },

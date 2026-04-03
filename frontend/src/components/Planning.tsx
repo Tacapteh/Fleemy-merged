@@ -30,10 +30,10 @@ export function Planning() {
   const { toast } = useToast()
 
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [view, setView] = useState<ViewMode>('week')
+  const [_view, _setView] = useState<ViewMode>('week')
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState<'task' | 'event'>('task')
-  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'))
+  const [_selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'))
 
   const [taskForm, setTaskForm] = useState({
     title: '',

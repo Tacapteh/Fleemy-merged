@@ -119,7 +119,7 @@ export function Budget() {
               <Tooltip
                 contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 8 }}
                 labelStyle={{ color: '#a1a1aa' }}
-                formatter={(v: number) => [`${v.toLocaleString('fr-FR')} €`]}
+                formatter={(v) => `${Number(v).toLocaleString('fr-FR')} €`}
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {categoryData.map((_, i) => (
