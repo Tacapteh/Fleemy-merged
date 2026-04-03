@@ -1,342 +1,565 @@
-import { useState, useMemo } from 'react'
-import { Plus, X, ChevronLeft, ChevronRight, Trash2, Clock, Flag, Calendar } from 'lucide-react'
+import { useState, useMemo, useRef, useCallback } from 'react'
+import { Plus, ChevronLeft, ChevronRight, X, Check } from 'lucide-react'
 import { useTasks } from '../hooks/useTasks'
 import { useEvents } from '../hooks/useEvents'
 import { useClients } from '../hooks/useClients'
 import { useToast } from '../context/ToastContext'
-import { EmptyState } from './ui/EmptyState'
-import { format, addDays, startOfWeek, parseISO, isSameDay } from 'date-fns'
+import {
+  format, addDays, addWeeks, addMonths,
+  startOfWeek, startOfMonth, endOfMonth,
+  eachDayOfInterval, isSameDay, isSameMonth,
+} from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { TaskItem, EventItem } from '../types'
 
-type ViewMode = 'week' | 'month'
+type ViewMode = 'day' | 'week' | 'month'
 
-const PRIORITY_COLORS: Record<number, string> = {
-  1: 'bg-red-500/20 border-red-500/50 text-red-300',
-  2: 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300',
-  3: 'bg-zinc-700/50 border-zinc-600 text-zinc-300',
+// ─── Time grid constants ────────────────────────────────────────────────────
+const HOUR_H = 64       // px per hour
+const DAY_START = 7     // 07:00
+const DAY_END = 21      // 21:00
+const HOURS = Array.from({ length: DAY_END - DAY_START }, (_, i) => i + DAY_START)
+
+function toMin(t: string) {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+function toPx(minutes: number) {
+  return ((minutes - DAY_START * 60) / 60) * HOUR_H
+}
+function pxToMin(px: number) {
+  const raw = (px / HOUR_H) * 60 + DAY_START * 60
+  return Math.max(DAY_START * 60, Math.min((DAY_END - 1) * 60, Math.round(raw / 15) * 15))
+}
+function toTimeStr(min: number) {
+  return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  todo: 'À faire',
-  'in-progress': 'En cours',
-  done: 'Terminé',
+// ─── Drag state ─────────────────────────────────────────────────────────────
+interface DragInfo {
+  id: string
+  kind: 'task' | 'event'
+  offsetMin: number
+  durationMin: number
 }
 
-export function Planning() {
-  const { tasks, addTask, updateTask, deleteTask } = useTasks()
-  const { events, addEvent, deleteEvent } = useEvents()
-  const { clients } = useClients()
-  const { toast } = useToast()
+// ─── TimeGrid ───────────────────────────────────────────────────────────────
+interface GridProps {
+  days: Date[]
+  tasks: TaskItem[]
+  events: EventItem[]
+  nowPx: number
+  showNow: boolean
+  onDayClick: (day: Date, minutes: number) => void
+  onDeleteTask: (id: string) => void
+  onCompleteTask: (id: string) => void
+  onDeleteEvent: (id: string) => void
+  onDragStart: (e: React.DragEvent, item: TaskItem | EventItem) => void
+  onDrop: (e: React.DragEvent, day: Date) => void
+}
 
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [_view, _setView] = useState<ViewMode>('week')
-  const [showModal, setShowModal] = useState(false)
-  const [modalType, setModalType] = useState<'task' | 'event'>('task')
-  const [_selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'))
-
-  const [taskForm, setTaskForm] = useState({
-    title: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    startTime: '09:00',
-    endTime: '10:00',
-    priority: 2 as 1 | 2 | 3,
-    status: 'todo' as 'todo' | 'in-progress' | 'done',
-    description: '',
-  })
-
-  const [eventForm, setEventForm] = useState({
-    title: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    startTime: '09:00',
-    endTime: '10:00',
-    clientId: '',
-    isBillable: true,
-    paymentStatus: 'unpaid' as 'paid' | 'unpaid' | 'pending' | 'not-worked',
-  })
-
-  const weekDays = useMemo(() => {
-    const start = startOfWeek(currentDate, { locale: fr })
-    return Array.from({ length: 7 }, (_, i) => addDays(start, i))
-  }, [currentDate])
-
-  const weekTasks = useMemo(() =>
-    tasks.filter(t => weekDays.some(d => isSameDay(parseISO(t.date), d))),
-    [tasks, weekDays]
-  )
-
-  const weekEvents = useMemo(() =>
-    events.filter(e => weekDays.some(d => isSameDay(parseISO(e.date), d))),
-    [events, weekDays]
-  )
-
-  const openModal = (type: 'task' | 'event', date?: string) => {
-    const d = date ?? format(new Date(), 'yyyy-MM-dd')
-    setModalType(type)
-    setSelectedDate(d)
-    if (type === 'task') setTaskForm(f => ({ ...f, date: d }))
-    else setEventForm(f => ({ ...f, date: d }))
-    setShowModal(true)
-  }
-
-  const handleSaveTask = async () => {
-    if (!taskForm.title.trim()) return
-    await addTask({
-      ...taskForm,
-      type: 'task',
-      progress: 0,
-      tags: [],
-    } as Omit<TaskItem, 'id'>)
-    toast('Tâche créée')
-    setShowModal(false)
-    setTaskForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', priority: 2, status: 'todo', description: '' })
-  }
-
-  const handleSaveEvent = async () => {
-    if (!eventForm.title.trim()) return
-    const client = clients.find(c => c.id === eventForm.clientId)
-    await addEvent({
-      ...eventForm,
-      type: 'event',
-      clientName: client?.name,
-    } as Omit<EventItem, 'id'>)
-    toast('Créneau créé')
-    setShowModal(false)
-    setEventForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid' })
-  }
-
-  const prevWeek = () => setCurrentDate(d => addDays(d, -7))
-  const nextWeek = () => setCurrentDate(d => addDays(d, 7))
+function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTask, onCompleteTask, onDeleteEvent, onDragStart, onDrop }: GridProps) {
+  const totalH = HOURS.length * HOUR_H
+  const isToday = (d: Date) => isSameDay(d, new Date())
 
   return (
-    <div className="p-6 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Planning</h1>
-          <p className="text-zinc-400 text-sm">
-            Semaine du {format(weekDays[0], 'd MMM', { locale: fr })} au {format(weekDays[6], 'd MMM yyyy', { locale: fr })}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={prevWeek} className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
-            <ChevronLeft size={16} />
-          </button>
-          <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors">
-            Aujourd'hui
-          </button>
-          <button onClick={nextWeek} className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
-            <ChevronRight size={16} />
-          </button>
-          <button
-            onClick={() => openModal('task')}
-            className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={16} /> Tâche
-          </button>
-          <button
-            onClick={() => openModal('event')}
-            className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors"
-          >
-            <Plus size={16} /> Créneau
-          </button>
-        </div>
+    <div className="flex" style={{ minHeight: totalH + 48 }}>
+      {/* Hour labels */}
+      <div className="w-14 shrink-0 select-none" style={{ paddingTop: 48 }}>
+        {HOURS.map(h => (
+          <div key={h} style={{ height: HOUR_H }} className="flex items-start justify-end pr-3 pt-0">
+            <span className="text-[10px] text-zinc-700 font-mono -translate-y-2">
+              {String(h).padStart(2, '0')}
+            </span>
+          </div>
+        ))}
       </div>
 
-      {/* Week grid */}
-      <div className="grid grid-cols-7 gap-2">
-        {weekDays.map(day => {
-          const dateStr = format(day, 'yyyy-MM-dd')
-          const dayTasks = weekTasks.filter(t => isSameDay(parseISO(t.date), day))
-          const dayEvents = weekEvents.filter(e => isSameDay(parseISO(e.date), day))
-          const isToday = isSameDay(day, new Date())
+      {/* Columns */}
+      <div className="flex-1 overflow-x-auto">
+        {/* Day headers */}
+        <div
+          className="grid sticky top-0 z-20 border-b border-[#1a1a1f]"
+          style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, background: '#0a0a0d' }}
+        >
+          {days.map((day, i) => (
+            <div
+              key={i}
+              className={`flex flex-col items-center justify-center py-2.5 border-r border-[#1a1a1f] last:border-r-0 ${isToday(day) ? 'bg-emerald-500/5' : ''}`}
+            >
+              <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
+                {format(day, 'EEE', { locale: fr })}
+              </span>
+              <span className={`text-base font-bold mt-0.5 w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
+                isToday(day) ? 'bg-emerald-500 text-white' : 'text-zinc-300'
+              }`}>
+                {format(day, 'd')}
+              </span>
+            </div>
+          ))}
+        </div>
 
-          return (
-            <div key={dateStr} className="min-h-40">
-              <div className={`text-center py-2 rounded-t-lg text-xs font-medium ${isToday ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-500'}`}>
-                <div>{format(day, 'EEE', { locale: fr }).toUpperCase()}</div>
-                <div className={`text-lg font-bold mt-0.5 ${isToday ? 'text-emerald-400' : 'text-white'}`}>
-                  {format(day, 'd')}
-                </div>
-              </div>
+        {/* Grid body */}
+        <div
+          className="grid relative"
+          style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, height: totalH }}
+        >
+          {days.map((day, di) => {
+            const ds = format(day, 'yyyy-MM-dd')
+            const dayTasks = tasks.filter(t => t.date === ds)
+            const dayEvents = events.filter(e => e.date === ds)
+
+            return (
               <div
-                className="min-h-32 bg-zinc-900 border border-zinc-800 rounded-b-lg p-2 space-y-1 cursor-pointer hover:border-zinc-700 transition-colors"
-                onClick={() => openModal('task', dateStr)}
+                key={di}
+                className={`relative border-r border-[#1a1a1f] last:border-r-0 cursor-crosshair ${isToday(day) ? 'bg-emerald-500/[0.015]' : ''}`}
+                style={{ height: totalH }}
+                onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                onDrop={e => onDrop(e, day)}
+                onClick={e => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  onDayClick(day, pxToMin(e.clientY - rect.top))
+                }}
               >
-                {dayEvents.map(e => (
-                  <div
-                    key={e.id}
-                    onClick={ev => { ev.stopPropagation(); }}
-                    className="px-2 py-1 rounded text-xs bg-blue-500/20 border border-blue-500/40 text-blue-300 flex items-center justify-between group"
-                  >
-                    <span className="truncate">{e.startTime} {e.title}</span>
-                    <button
-                      onClick={ev => { ev.stopPropagation(); deleteEvent(e.id); toast('Créneau supprimé') }}
-                      className="opacity-0 group-hover:opacity-100 ml-1 shrink-0"
+                {/* Grid lines */}
+                {HOURS.map(h => (
+                  <div key={h}>
+                    <div className="absolute w-full border-t border-[#1a1a1f]" style={{ top: (h - DAY_START) * HOUR_H }} />
+                    <div className="absolute w-full border-t border-[#141418]" style={{ top: (h - DAY_START) * HOUR_H + HOUR_H / 2 }} />
+                  </div>
+                ))}
+
+                {/* Now indicator */}
+                {isToday(day) && showNow && (
+                  <div className="absolute left-0 right-0 z-30 pointer-events-none flex items-center" style={{ top: nowPx }}>
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] -ml-1 shrink-0" />
+                    <div className="flex-1 h-px bg-emerald-400/50" />
+                  </div>
+                )}
+
+                {/* Event pills */}
+                {dayEvents.map(ev => {
+                  const top = toPx(toMin(ev.startTime ?? '09:00'))
+                  const h = Math.max(22, toPx(toMin(ev.endTime ?? '10:00')) - top)
+                  return (
+                    <div
+                      key={ev.id}
+                      draggable
+                      onDragStart={e => { e.stopPropagation(); onDragStart(e, ev) }}
+                      onClick={e => e.stopPropagation()}
+                      title={`${ev.title} — ${ev.startTime}–${ev.endTime}`}
+                      className="absolute left-1 right-1 rounded-lg overflow-hidden cursor-grab active:cursor-grabbing group select-none z-10"
+                      style={{
+                        top: top + 1,
+                        height: h - 2,
+                        background: 'linear-gradient(160deg, #2d2b6b 0%, #312e81 100%)',
+                        borderLeft: '3px solid #6366f1',
+                        boxShadow: '0 1px 8px rgba(99,102,241,0.2)',
+                      }}
                     >
-                      <X size={10} />
-                    </button>
-                  </div>
-                ))}
-                {dayTasks.map(t => (
-                  <div
-                    key={t.id}
-                    onClick={ev => ev.stopPropagation()}
-                    className={`px-2 py-1 rounded text-xs border flex items-center justify-between group ${PRIORITY_COLORS[t.priority]}`}
-                  >
-                    <span className="truncate">{t.title}</span>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 ml-1">
-                      {t.status !== 'done' && (
-                        <button onClick={() => { updateTask(t.id, { status: 'done' }); toast('Tâche terminée') }} title="Marquer terminé">
-                          ✓
-                        </button>
-                      )}
-                      <button onClick={() => { deleteTask(t.id); toast('Tâche supprimée') }}>
-                        <X size={10} />
-                      </button>
+                      <div className="px-2 py-1">
+                        <p className="text-[11px] font-semibold text-indigo-100 truncate leading-tight">{ev.title}</p>
+                        {h > 32 && <p className="text-[9px] text-indigo-300/60 mt-0.5">{ev.startTime}–{ev.endTime}</p>}
+                      </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); onDeleteEvent(ev.id) }}
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 w-4 h-4 rounded bg-black/40 flex items-center justify-center text-indigo-200 transition-opacity"
+                      ><X size={8} /></button>
                     </div>
+                  )
+                })}
+
+                {/* Task pills */}
+                {dayTasks.map(task => {
+                  const top = toPx(toMin(task.startTime ?? '09:00'))
+                  const h = Math.max(22, toPx(toMin(task.endTime ?? '10:00')) - top)
+                  const done = task.status === 'done'
+                  const [border, bg] =
+                    done ? ['#3f3f46', 'rgba(63,63,70,0.15)'] :
+                    task.priority === 1 ? ['#ef4444', 'rgba(239,68,68,0.09)'] :
+                    task.priority === 2 ? ['#f59e0b', 'rgba(245,158,11,0.09)'] :
+                    ['#10b981', 'rgba(16,185,129,0.09)']
+                  return (
+                    <div
+                      key={task.id}
+                      draggable={!done}
+                      onDragStart={e => { e.stopPropagation(); if (!done) onDragStart(e, task) }}
+                      onClick={e => e.stopPropagation()}
+                      title={task.title}
+                      className={`absolute left-1 right-1 rounded-lg overflow-hidden select-none z-10 group ${done ? 'opacity-40' : 'cursor-grab active:cursor-grabbing'}`}
+                      style={{ top: top + 1, height: h - 2, background: bg, borderLeft: `3px solid ${border}` }}
+                    >
+                      <div className="px-2 py-1">
+                        <p className={`text-[11px] font-semibold truncate leading-tight ${done ? 'line-through text-zinc-600' : 'text-zinc-100'}`}>
+                          {task.title}
+                        </p>
+                        {h > 32 && <p className="text-[9px] text-zinc-600 mt-0.5">{task.startTime}–{task.endTime}</p>}
+                      </div>
+                      <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {!done && (
+                          <button onClick={e => { e.stopPropagation(); onCompleteTask(task.id) }}
+                            className="w-4 h-4 rounded bg-emerald-500/30 flex items-center justify-center text-emerald-300">
+                            <Check size={7} />
+                          </button>
+                        )}
+                        <button onClick={e => { e.stopPropagation(); onDeleteTask(task.id) }}
+                          className="w-4 h-4 rounded bg-black/40 flex items-center justify-center text-zinc-400">
+                          <X size={7} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── MonthView ───────────────────────────────────────────────────────────────
+interface MonthProps {
+  days: Date[]
+  refDate: Date
+  tasks: TaskItem[]
+  events: EventItem[]
+  onDayClick: (d: Date) => void
+}
+
+function MonthView({ days, refDate, tasks, events, onDayClick }: MonthProps) {
+  const today = new Date()
+  const DOW = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+  return (
+    <div className="p-4 select-none">
+      <div className="grid grid-cols-7 mb-2">
+        {DOW.map(d => (
+          <div key={d} className="text-center text-[11px] font-semibold text-zinc-700 uppercase tracking-widest py-2">{d}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((day, i) => {
+          const ds = format(day, 'yyyy-MM-dd')
+          const dt = tasks.filter(t => t.date === ds)
+          const de = events.filter(e => e.date === ds)
+          const isNow = isSameDay(day, today)
+          const inMonth = isSameMonth(day, refDate)
+          const total = dt.length + de.length
+          return (
+            <div
+              key={i}
+              onClick={() => onDayClick(day)}
+              className={`relative min-h-[86px] rounded-xl p-2.5 cursor-pointer transition-all border group ${
+                isNow
+                  ? 'border-emerald-500/50 bg-emerald-950/40 shadow-[0_0_12px_rgba(16,185,129,0.08)]'
+                  : 'border-[#1a1a1f] bg-[#0e0e11] hover:bg-[#121216] hover:border-[#252530]'
+              } ${!inMonth ? 'opacity-25' : ''}`}
+            >
+              <span className={`text-sm font-bold block mb-1.5 ${isNow ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                {format(day, 'd')}
+              </span>
+              <div className="space-y-0.5">
+                {de.slice(0, 1).map(ev => (
+                  <div key={ev.id} className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-300 truncate border border-indigo-500/20">
+                    {ev.title}
                   </div>
                 ))}
+                {dt.slice(0, de.length > 0 ? 1 : 2).map(t => (
+                  <div key={t.id} className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 truncate border border-emerald-500/15">
+                    {t.title}
+                  </div>
+                ))}
+                {total > 2 && (
+                  <div className="text-[9px] text-zinc-600 px-1.5">+{total - 2} autres</div>
+                )}
               </div>
+              {total === 0 && inMonth && (
+                <Plus size={12} className="absolute bottom-2 right-2 text-zinc-800 opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
             </div>
           )
         })}
       </div>
+    </div>
+  )
+}
 
-      {/* Task list */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl">
-        <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-          <h2 className="text-sm font-medium text-white">Toutes les tâches</h2>
-          <span className="text-xs text-zinc-500">{tasks.filter(t => t.status !== 'done').length} en attente</span>
+// ─── Main component ──────────────────────────────────────────────────────────
+export function Planning() {
+  const { tasks, addTask, updateTask, deleteTask } = useTasks()
+  const { events, addEvent, updateEvent, deleteEvent } = useEvents()
+  const { clients } = useClients()
+  const { toast } = useToast()
+
+  const [view, setView] = useState<ViewMode>('week')
+  const [current, setCurrent] = useState(new Date())
+  const [modal, setModal] = useState(false)
+  const [mType, setMType] = useState<'task' | 'event'>('task')
+  const dragRef = useRef<DragInfo | null>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
+
+  const [tForm, setTForm] = useState({
+    title: '', date: format(new Date(), 'yyyy-MM-dd'),
+    startTime: '09:00', endTime: '10:00',
+    priority: 2 as 1 | 2 | 3,
+    status: 'todo' as TaskItem['status'],
+    description: '',
+  })
+  const [eForm, setEForm] = useState({
+    title: '', date: format(new Date(), 'yyyy-MM-dd'),
+    startTime: '09:00', endTime: '10:00',
+    clientId: '', isBillable: true,
+    paymentStatus: 'unpaid' as EventItem['paymentStatus'],
+  })
+
+  // Visible days
+  const days = useMemo(() => {
+    if (view === 'day') return [current]
+    if (view === 'week') {
+      const s = startOfWeek(current, { weekStartsOn: 1 })
+      return Array.from({ length: 7 }, (_, i) => addDays(s, i))
+    }
+    const s = startOfWeek(startOfMonth(current), { weekStartsOn: 1 })
+    const e = addDays(startOfWeek(endOfMonth(current), { weekStartsOn: 1 }), 6)
+    return eachDayOfInterval({ start: s, end: e })
+  }, [view, current])
+
+  const nav = (dir: -1 | 1) => {
+    if (view === 'day') setCurrent(d => addDays(d, dir))
+    else if (view === 'week') setCurrent(d => addWeeks(d, dir))
+    else setCurrent(d => addMonths(d, dir))
+  }
+
+  const openModal = (type: 'task' | 'event', date?: string, startMin?: number) => {
+    const d = date ?? format(new Date(), 'yyyy-MM-dd')
+    const st = startMin ? toTimeStr(startMin) : '09:00'
+    const et = startMin ? toTimeStr(Math.min(startMin + 60, (DAY_END - 1) * 60)) : '10:00'
+    setMType(type)
+    if (type === 'task') setTForm(f => ({ ...f, date: d, startTime: st, endTime: et }))
+    else setEForm(f => ({ ...f, date: d, startTime: st, endTime: et }))
+    setModal(true)
+  }
+
+  const saveTask = async () => {
+    if (!tForm.title.trim()) return
+    await addTask({ ...tForm, type: 'task', progress: 0, tags: [] } as Omit<TaskItem, 'id'>)
+    toast('Tâche créée')
+    setModal(false)
+    setTForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', priority: 2, status: 'todo', description: '' })
+  }
+
+  const saveEvent = async () => {
+    if (!eForm.title.trim()) return
+    const client = clients.find(c => c.id === eForm.clientId)
+    await addEvent({ ...eForm, type: 'event', clientName: client?.name } as Omit<EventItem, 'id'>)
+    toast('Créneau créé')
+    setModal(false)
+    setEForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid' })
+  }
+
+  // Drag & drop
+  const handleDragStart = useCallback((e: React.DragEvent, item: TaskItem | EventItem) => {
+    const el = e.currentTarget as HTMLElement
+    const rect = el.getBoundingClientRect()
+    const clickY = e.clientY - rect.top
+    dragRef.current = {
+      id: item.id,
+      kind: item.type as 'task' | 'event',
+      offsetMin: Math.round((clickY / HOUR_H) * 60),
+      durationMin: toMin(item.endTime ?? '10:00') - toMin(item.startTime ?? '09:00'),
+    }
+    e.dataTransfer.effectAllowed = 'move'
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent, day: Date) => {
+    e.preventDefault()
+    const info = dragRef.current
+    if (!info) return
+    const target = e.currentTarget as HTMLElement
+    const rect = target.getBoundingClientRect()
+    const newStart = Math.max(DAY_START * 60, pxToMin(e.clientY - rect.top) - info.offsetMin)
+    const newEnd = Math.min(DAY_END * 60, newStart + info.durationMin)
+    const updates = { date: format(day, 'yyyy-MM-dd'), startTime: toTimeStr(newStart), endTime: toTimeStr(newEnd) }
+    if (info.kind === 'task') updateTask(info.id, updates)
+    else updateEvent(info.id, updates)
+    dragRef.current = null
+    toast('Déplacé')
+  }, [updateTask, updateEvent, toast])
+
+  // Current time
+  const now = new Date()
+  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const nowPx = toPx(nowMin)
+  const showNow = nowMin >= DAY_START * 60 && nowMin < DAY_END * 60
+
+  const title = useMemo(() => {
+    if (view === 'day') return format(current, 'EEEE d MMMM yyyy', { locale: fr })
+    if (view === 'week') {
+      const s = startOfWeek(current, { weekStartsOn: 1 })
+      return `${format(s, 'd MMM', { locale: fr })} — ${format(addDays(s, 6), 'd MMM yyyy', { locale: fr })}`
+    }
+    return format(current, 'MMMM yyyy', { locale: fr })
+  }, [view, current])
+
+  return (
+    <div className="flex flex-col h-full bg-[#0a0a0d]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      {/* ── Header ── */}
+      <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b border-[#1a1a1f]">
+        <div className="flex items-center gap-4">
+          <h1 className="text-[15px] font-bold text-zinc-100 capitalize tracking-tight" style={{ fontFamily: "'Syne', sans-serif" }}>
+            {title}
+          </h1>
+          {/* View toggle */}
+          <div className="flex bg-[#111114] rounded-lg p-0.5 border border-[#1a1a1f]">
+            {(['day', 'week', 'month'] as ViewMode[]).map(v => (
+              <button key={v} onClick={() => setView(v)}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                  view === v ? 'bg-[#1e1e24] text-white shadow-sm' : 'text-zinc-600 hover:text-zinc-400'
+                }`}
+              >
+                {v === 'day' ? 'Jour' : v === 'week' ? 'Semaine' : 'Mois'}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="divide-y divide-zinc-800">
-          {tasks.length === 0 ? (
-            <EmptyState
-              icon={<Calendar size={32} />}
-              title="Aucune tâche"
-              description="Cliquez sur une case du calendrier ou sur « Tâche » pour commencer."
-            />
-          ) : (
-            tasks.map(t => (
-              <div key={t.id} className="p-4 flex items-center gap-3 group">
-                <button
-                  onClick={() => { const next = t.status === 'done' ? 'todo' : 'done'; updateTask(t.id, { status: next }); if (next === 'done') toast('Tâche terminée') }}
-                  className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                    t.status === 'done' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-zinc-600 hover:border-emerald-500'
-                  }`}
-                >
-                  {t.status === 'done' && <span className="text-xs">✓</span>}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium truncate ${t.status === 'done' ? 'line-through text-zinc-600' : 'text-white'}`}>
-                    {t.title}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-zinc-500 flex items-center gap-1">
-                      <Clock size={10} /> {t.date}
-                    </span>
-                    <span className={`text-xs flex items-center gap-1 ${
-                      t.priority === 1 ? 'text-red-400' : t.priority === 2 ? 'text-yellow-400' : 'text-zinc-500'
-                    }`}>
-                      <Flag size={10} /> {t.priority === 1 ? 'Urgent' : t.priority === 2 ? 'Normal' : 'Faible'}
-                    </span>
-                    <span className="text-xs text-zinc-600">{STATUS_LABELS[t.status]}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { deleteTask(t.id); toast('Tâche supprimée') }}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-zinc-600 hover:text-red-400 transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))
-          )}
+
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => nav(-1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors">
+            <ChevronLeft size={15} />
+          </button>
+          <button onClick={() => setCurrent(new Date())}
+            className="px-2.5 py-1 text-xs bg-[#111114] hover:bg-[#1a1a1f] border border-[#1a1a1f] text-zinc-400 rounded-lg transition-colors">
+            Aujourd'hui
+          </button>
+          <button onClick={() => nav(1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors">
+            <ChevronRight size={15} />
+          </button>
+          <div className="w-px h-4 bg-[#1a1a1f] mx-1" />
+          <button onClick={() => openModal('task')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg text-xs font-semibold transition-colors shadow-[0_0_12px_rgba(16,185,129,0.25)]">
+            <Plus size={13} /> Tâche
+          </button>
+          <button onClick={() => openModal('event')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2d2b6b] hover:bg-[#3730a3] text-indigo-200 rounded-lg text-xs font-semibold transition-colors">
+            <Plus size={13} /> Créneau
+          </button>
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setModalType('task')}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${modalType === 'task' ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-400 hover:text-white'}`}
-                >
+      {/* ── Body ── */}
+      <div className="flex-1 overflow-auto" ref={gridRef}>
+        {view === 'month' ? (
+          <MonthView
+            days={days} refDate={current} tasks={tasks} events={events}
+            onDayClick={d => openModal('task', format(d, 'yyyy-MM-dd'))}
+          />
+        ) : (
+          <TimeGrid
+            days={days} tasks={tasks} events={events}
+            nowPx={nowPx} showNow={showNow}
+            onDayClick={(day, min) => openModal('task', format(day, 'yyyy-MM-dd'), min)}
+            onDeleteTask={id => { deleteTask(id); toast('Tâche supprimée') }}
+            onCompleteTask={id => { updateTask(id, { status: 'done' }); toast('Terminée ✓') }}
+            onDeleteEvent={id => { deleteEvent(id); toast('Créneau supprimé') }}
+            onDragStart={handleDragStart}
+            onDrop={handleDrop}
+          />
+        )}
+      </div>
+
+      {/* ── Modal ── */}
+      {modal && (
+        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div
+            className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
+            style={{ background: '#0e0e11', border: '1px solid #1e1e24' }}
+          >
+            {/* Tabs */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex bg-[#0a0a0d] rounded-xl p-0.5 border border-[#1a1a1f]">
+                <button onClick={() => setMType('task')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'task' ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
                   Tâche
                 </button>
-                <button
-                  onClick={() => setModalType('event')}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${modalType === 'event' ? 'bg-blue-500/20 text-blue-400' : 'text-zinc-400 hover:text-white'}`}
-                >
+                <button onClick={() => setMType('event')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'event' ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
                   Créneau
                 </button>
               </div>
-              <button onClick={() => setShowModal(false)} className="text-zinc-500 hover:text-white">
-                <X size={18} />
+              <button onClick={() => setModal(false)}
+                className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors">
+                <X size={15} />
               </button>
             </div>
 
-            {modalType === 'task' ? (
-              <div className="space-y-3">
-                <input
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                  placeholder="Titre de la tâche"
-                  value={taskForm.title}
-                  onChange={e => setTaskForm(f => ({ ...f, title: e.target.value }))}
-                />
-                <input type="date" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                  value={taskForm.date} onChange={e => setTaskForm(f => ({ ...f, date: e.target.value }))} />
+            {mType === 'task' ? (
+              <div className="space-y-2.5">
+                <input autoFocus placeholder="Titre de la tâche…"
+                  className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/10 transition-all"
+                  value={tForm.title} onChange={e => setTForm(f => ({ ...f, title: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && saveTask()} />
+                <input type="date" className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/40 transition-all [color-scheme:dark]"
+                  value={tForm.date} onChange={e => setTForm(f => ({ ...f, date: e.target.value }))} />
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="time" className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                    value={taskForm.startTime} onChange={e => setTaskForm(f => ({ ...f, startTime: e.target.value }))} />
-                  <input type="time" className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                    value={taskForm.endTime} onChange={e => setTaskForm(f => ({ ...f, endTime: e.target.value }))} />
+                  <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/40 transition-all [color-scheme:dark]"
+                    value={tForm.startTime} onChange={e => setTForm(f => ({ ...f, startTime: e.target.value }))} />
+                  <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/40 transition-all [color-scheme:dark]"
+                    value={tForm.endTime} onChange={e => setTForm(f => ({ ...f, endTime: e.target.value }))} />
                 </div>
-                <select className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                  value={taskForm.priority} onChange={e => setTaskForm(f => ({ ...f, priority: Number(e.target.value) as 1|2|3 }))}>
-                  <option value={1}>🔴 Urgent</option>
-                  <option value={2}>🟡 Normal</option>
-                  <option value={3}>⚪ Faible</option>
-                </select>
-                <textarea className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500 resize-none"
-                  rows={2} placeholder="Description (optionnel)"
-                  value={taskForm.description} onChange={e => setTaskForm(f => ({ ...f, description: e.target.value }))} />
-                <button onClick={handleSaveTask}
-                  className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors">
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([1, 2, 3] as const).map(p => (
+                    <button key={p} onClick={() => setTForm(f => ({ ...f, priority: p }))}
+                      className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                        tForm.priority === p
+                          ? p === 1 ? 'bg-red-500/15 border-red-500/40 text-red-300'
+                            : p === 2 ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                            : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                          : 'border-[#1e1e24] text-zinc-700 hover:text-zinc-500'
+                      }`}>
+                      {p === 1 ? '🔴 Urgent' : p === 2 ? '🟡 Normal' : '🟢 Faible'}
+                    </button>
+                  ))}
+                </div>
+                <textarea rows={2} placeholder="Description (optionnel)"
+                  className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-emerald-500/40 transition-all resize-none"
+                  value={tForm.description} onChange={e => setTForm(f => ({ ...f, description: e.target.value }))} />
+                <button onClick={saveTask}
+                  className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-sm font-semibold transition-colors shadow-[0_2px_12px_rgba(16,185,129,0.3)]">
                   Créer la tâche
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                <input
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-blue-500"
-                  placeholder="Titre du créneau"
-                  value={eventForm.title}
-                  onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))}
-                />
-                <input type="date" className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                  value={eventForm.date} onChange={e => setEventForm(f => ({ ...f, date: e.target.value }))} />
+              <div className="space-y-2.5">
+                <input autoFocus placeholder="Titre du créneau…"
+                  className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/10 transition-all"
+                  value={eForm.title} onChange={e => setEForm(f => ({ ...f, title: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && saveEvent()} />
+                <input type="date" className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all [color-scheme:dark]"
+                  value={eForm.date} onChange={e => setEForm(f => ({ ...f, date: e.target.value }))} />
                 <div className="grid grid-cols-2 gap-2">
-                  <input type="time" className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                    value={eventForm.startTime} onChange={e => setEventForm(f => ({ ...f, startTime: e.target.value }))} />
-                  <input type="time" className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                    value={eventForm.endTime} onChange={e => setEventForm(f => ({ ...f, endTime: e.target.value }))} />
+                  <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all [color-scheme:dark]"
+                    value={eForm.startTime} onChange={e => setEForm(f => ({ ...f, startTime: e.target.value }))} />
+                  <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all [color-scheme:dark]"
+                    value={eForm.endTime} onChange={e => setEForm(f => ({ ...f, endTime: e.target.value }))} />
                 </div>
-                <select className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                  value={eventForm.clientId} onChange={e => setEventForm(f => ({ ...f, clientId: e.target.value }))}>
+                <select className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all"
+                  value={eForm.clientId} onChange={e => setEForm(f => ({ ...f, clientId: e.target.value }))}>
                   <option value="">Aucun client</option>
                   {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
-                  <input type="checkbox" className="accent-blue-500" checked={eventForm.isBillable}
-                    onChange={e => setEventForm(f => ({ ...f, isBillable: e.target.checked }))} />
-                  Facturable
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <button
+                    type="button"
+                    onClick={() => setEForm(f => ({ ...f, isBillable: !f.isBillable }))}
+                    className={`relative w-10 h-[22px] rounded-full transition-colors duration-200 ${eForm.isBillable ? 'bg-indigo-500' : 'bg-[#1e1e24]'}`}
+                  >
+                    <div className={`absolute top-[3px] w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${eForm.isBillable ? 'translate-x-5' : 'translate-x-[3px]'}`} />
+                  </button>
+                  <span className="text-sm text-zinc-300">Facturable</span>
                 </label>
-                <button onClick={handleSaveEvent}
-                  className="w-full py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors">
+                <button onClick={saveEvent}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors shadow-[0_2px_12px_rgba(99,102,241,0.25)]">
                   Créer le créneau
                 </button>
               </div>
