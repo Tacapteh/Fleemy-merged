@@ -8,7 +8,7 @@ import { db } from '../services/firebase'
 import { useAuth } from './useAuth'
 import type { Document as FleemyDocument } from '../types'
 
-export function useDocuments() {
+function useDocumentsFirestore() {
   const { user } = useAuth()
   const [documents, setDocuments] = useState<FleemyDocument[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,3 +40,7 @@ export function useDocuments() {
 
   return { documents, loading, addDocument, updateDocument, deleteDocument }
 }
+
+import { useMockDocuments } from '../mocks/hooks'
+const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+export const useDocuments = _MOCK ? useMockDocuments : useDocumentsFirestore

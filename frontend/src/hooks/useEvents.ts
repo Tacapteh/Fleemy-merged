@@ -8,7 +8,7 @@ import { db } from '../services/firebase'
 import { useAuth } from './useAuth'
 import type { EventItem } from '../types'
 
-export function useEvents() {
+function useEventsFirestore() {
   const { user } = useAuth()
   const [events, setEvents] = useState<EventItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,3 +40,7 @@ export function useEvents() {
 
   return { events, loading, addEvent, updateEvent, deleteEvent }
 }
+
+import { useMockEvents } from '../mocks/hooks'
+const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+export const useEvents = _MOCK ? useMockEvents : useEventsFirestore

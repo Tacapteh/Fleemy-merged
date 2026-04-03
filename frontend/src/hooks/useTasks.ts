@@ -8,7 +8,7 @@ import { db } from '../services/firebase'
 import { useAuth } from './useAuth'
 import type { TaskItem } from '../types'
 
-export function useTasks() {
+function useTasksFirestore() {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,3 +40,7 @@ export function useTasks() {
 
   return { tasks, loading, addTask, updateTask, deleteTask }
 }
+
+import { useMockTasks } from '../mocks/hooks'
+const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+export const useTasks = _MOCK ? useMockTasks : useTasksFirestore

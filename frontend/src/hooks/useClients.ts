@@ -8,7 +8,7 @@ import { db } from '../services/firebase'
 import { useAuth } from './useAuth'
 import type { Client } from '../types'
 
-export function useClients() {
+function useClientsFirestore() {
   const { user } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,3 +40,7 @@ export function useClients() {
 
   return { clients, loading, addClient, updateClient, deleteClient }
 }
+
+import { useMockClients } from '../mocks/hooks'
+const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+export const useClients = _MOCK ? useMockClients : useClientsFirestore
