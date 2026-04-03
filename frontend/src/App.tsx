@@ -16,10 +16,10 @@ function PlaceholderPage({ name }: { name: string }) {
 type Tab = 'dashboard' | 'planning' | 'budget' | 'clients' | 'notes' | 'documents' | 'settings'
 
 export function App() {
-  const { user, loading, logout } = useAuth()
+  const { user, authLoading, logout } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-zinc-400 text-sm">Chargement...</div>
