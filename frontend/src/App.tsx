@@ -1,23 +1,21 @@
-// frontend/src/App.tsx
 import { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
-
-// Placeholders — seront remplacés en Phase 4
-function PlaceholderPage({ name }: { name: string }) {
-  return (
-    <div className="p-8 text-zinc-400">
-      <h1 className="text-xl font-semibold text-white mb-2">{name}</h1>
-      <p>Ce module sera implémenté en Phase 4.</p>
-    </div>
-  )
-}
+import { Sidebar } from './components/Sidebar'
+import { Dashboard } from './components/Dashboard'
+import { Planning } from './components/Planning'
+import { Budget } from './components/Budget'
+import { Clients } from './components/Clients'
+import { Notes } from './components/Notes'
+import { Documents } from './components/Documents'
+import { Settings } from './components/Settings'
 
 type Tab = 'dashboard' | 'planning' | 'budget' | 'clients' | 'notes' | 'documents' | 'settings'
 
 export function App() {
-  const { user, authLoading, logout } = useAuth()
+  const { user, authLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   if (authLoading) {
     return (
@@ -31,47 +29,34 @@ export function App() {
     return <LoginPage />
   }
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'planning', label: 'Planning' },
-    { id: 'budget', label: 'Budget' },
-    { id: 'clients', label: 'Clients' },
-    { id: 'notes', label: 'Notes' },
-    { id: 'documents', label: 'Documents' },
-    { id: 'settings', label: 'Paramètres' },
-  ]
+  const navigate = (tab: string) => {
+    setActiveTab(tab as Tab)
+    setSidebarOpen(false)
+  }
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard': return <Dashboard onNavigate={navigate} />
+      case 'planning':  return <Planning />
+      case 'budget':    return <Budget />
+      case 'clients':   return <Clients />
+      case 'notes':     return <Notes />
+      case 'documents': return <Documents />
+      case 'settings':  return <Settings />
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      {/* Barre de nav temporaire */}
-      <nav className="border-b border-zinc-800 px-4 py-3 flex items-center justify-between">
-        <div className="flex gap-1">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-zinc-400">{user.displayName ?? user.email}</span>
-          <button
-            onClick={logout}
-            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
-          >
-            Déconnexion
-          </button>
-        </div>
-      </nav>
-      <main className="p-6">
-        <PlaceholderPage name={tabs.find(t => t.id === activeTab)?.label ?? ''} />
+    <div className="flex h-screen bg-zinc-950 overflow-hidden">
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={tab => setActiveTab(tab)}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(o => !o)}
+        user={user}
+      />
+      <main className="flex-1 overflow-y-auto">
+        {renderContent()}
       </main>
     </div>
   )
