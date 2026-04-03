@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Save, Clock, DollarSign, Mail, Globe, Bell } from 'lucide-react'
+import { Save, Clock, DollarSign, Mail, Users, Copy, LogIn } from 'lucide-react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
+import { useTeam } from '../hooks/useTeam'
+import { useToast } from '../context/ToastContext'
 import type { AppSettings } from '../types'
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -27,9 +29,14 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 export function Settings() {
   const { user } = useAuth()
+  const { team, loading: teamLoading, error: teamError, createTeam, joinTeam, leaveTeam } = useTeam()
+  const { toast } = useToast()
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
+  const [newTeamName, setNewTeamName] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const [teamView, setTeamView] = useState<'create' | 'join'>('create')
 
   useEffect(() => {
     if (!user) return
@@ -50,7 +57,29 @@ export function Settings() {
     if (!user) return
     await setDoc(doc(db, 'users', user.uid), { settings }, { merge: true })
     setSaved(true)
+    toast('Paramètres sauvegardés')
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const handleCreateTeam = async () => {
+    if (!newTeamName.trim()) return
+    await createTeam(newTeamName.trim())
+    setNewTeamName('')
+    if (!teamError) toast('Équipe créée !')
+  }
+
+  const handleJoinTeam = async () => {
+    if (!inviteCode.trim()) return
+    await joinTeam(inviteCode.trim())
+    setInviteCode('')
+    if (!teamError) toast('Équipe rejointe !')
+  }
+
+  const copyInviteCode = () => {
+    if (team?.inviteCode) {
+      navigator.clipboard.writeText(team.inviteCode)
+      toast('Code copié dans le presse-papiers')
+    }
   }
 
   if (loading) {
@@ -209,6 +238,95 @@ export function Settings() {
             })}
           />
         </div>
+      </section>
+
+      {/* Team */}
+      <section className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
+        <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+          <Users size={16} className="text-emerald-400" /> Équipe
+        </h2>
+
+        {teamLoading ? (
+          <p className="text-xs text-zinc-500">Chargement...</p>
+        ) : team ? (
+          <div className="space-y-3">
+            <div className="bg-zinc-800 rounded-lg p-3">
+              <p className="text-sm font-medium text-white">{team.name}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">{team.members.length} membre{team.members.length !== 1 ? 's' : ''}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500 mb-2">Code d'invitation</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-zinc-800 px-3 py-2 rounded-lg text-sm font-mono text-emerald-400 tracking-widest">
+                  {team.inviteCode}
+                </code>
+                <button onClick={copyInviteCode}
+                  className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
+                  <Copy size={14} />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              {team.members.map(m => (
+                <div key={m.uid} className="flex items-center gap-2 text-sm">
+                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs font-bold shrink-0">
+                    {m.displayName[0].toUpperCase()}
+                  </div>
+                  <span className="text-zinc-300 truncate">{m.displayName}</span>
+                  {m.role === 'owner' && <span className="text-xs text-zinc-600 ml-auto">Propriétaire</span>}
+                </div>
+              ))}
+            </div>
+            {team.ownerId !== user?.uid && (
+              <button onClick={leaveTeam}
+                className="text-xs text-red-400 hover:text-red-300 transition-colors">
+                Quitter l'équipe
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex gap-2 border-b border-zinc-800 pb-3">
+              <button onClick={() => setTeamView('create')}
+                className={`text-xs font-medium transition-colors ${teamView === 'create' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                Créer une équipe
+              </button>
+              <button onClick={() => setTeamView('join')}
+                className={`text-xs font-medium transition-colors ${teamView === 'join' ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                Rejoindre
+              </button>
+            </div>
+            {teamError && <p className="text-xs text-red-400">{teamError}</p>}
+            {teamView === 'create' ? (
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
+                  placeholder="Nom de l'équipe"
+                  value={newTeamName}
+                  onChange={e => setNewTeamName(e.target.value)}
+                />
+                <button onClick={handleCreateTeam}
+                  className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                  Créer
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 uppercase tracking-widest focus:outline-none focus:border-emerald-500"
+                  placeholder="CODE8CAR"
+                  value={inviteCode}
+                  onChange={e => setInviteCode(e.target.value.toUpperCase())}
+                  maxLength={8}
+                />
+                <button onClick={handleJoinTeam}
+                  className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5">
+                  <LogIn size={14} /> Rejoindre
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Save button */}
