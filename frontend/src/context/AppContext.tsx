@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react'
 import type { User } from 'firebase/auth'
 import {
-  Client, EventItem, Transaction, Document, Note, AppSettings,
+  Client, EventItem, Transaction, Document as FleemyDocument, Note, AppSettings,
   RecurringTaskTemplate, View, TaskItem,
 } from '../types'
 import { useAuth } from '../hooks/useAuth'
@@ -17,7 +17,7 @@ interface AppContextType {
   events: EventItem[]
   tasks: TaskItem[]
   transactions: Transaction[]
-  documents: Document[]
+  documents: FleemyDocument[]
   notes: Note[]
   settings: AppSettings
   recurringTemplates: RecurringTaskTemplate[]
@@ -33,7 +33,7 @@ interface AppContextType {
   deleteEvent: (id: string) => void
   deleteTask: (id: string) => void
   addTransaction: (transaction: Transaction) => void
-  addDocument: (doc: Document) => void
+  addDocument: (doc: FleemyDocument) => void
   updateSettings: (settings: AppSettings) => void
   showToast: (message: string, type?: 'success' | 'error') => void
 }
@@ -61,7 +61,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [events, setEvents] = useState<EventItem[]>([])
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [documents, setDocuments] = useState<FleemyDocument[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [settings, setSettings] = useState<AppSettings>(defaultSettings)
   const [recurringTemplates] = useState<RecurringTaskTemplate[]>([])
@@ -88,7 +88,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)))
   const deleteTask = (id: string) => setTasks((prev) => prev.filter((t) => t.id !== id))
   const addTransaction = (t: Transaction) => setTransactions((prev) => [...prev, t])
-  const addDocument = (d: Document) => setDocuments((prev) => [...prev, d])
+  const addDocument = (d: FleemyDocument) => setDocuments((prev) => [...prev, d])
   const updateSettings = (s: AppSettings) => setSettings(s)
 
   return (

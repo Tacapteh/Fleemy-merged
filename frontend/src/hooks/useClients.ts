@@ -29,10 +29,12 @@ export function useClients() {
   }
 
   const updateClient = async (id: string, updates: Partial<Client>) => {
+    if (!user) return
     await updateDoc(doc(db, 'clients', id), updates as UpdateData<Client>)
   }
 
   const deleteClient = async (id: string) => {
+    if (!user) return
     await deleteDoc(doc(db, 'clients', id))
   }
 

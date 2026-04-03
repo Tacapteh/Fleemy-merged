@@ -29,10 +29,12 @@ export function useNotes() {
   }
 
   const updateNote = async (id: string, updates: Partial<Note>) => {
+    if (!user) return
     await updateDoc(doc(db, 'notes', id), updates as UpdateData<Note>)
   }
 
   const deleteNote = async (id: string) => {
+    if (!user) return
     await deleteDoc(doc(db, 'notes', id))
   }
 

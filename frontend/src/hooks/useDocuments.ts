@@ -29,10 +29,12 @@ export function useDocuments() {
   }
 
   const updateDocument = async (id: string, updates: Partial<FleemyDocument>) => {
+    if (!user) return
     await updateDoc(doc(db, 'documents', id), updates as UpdateData<FleemyDocument>)
   }
 
   const deleteDocument = async (id: string) => {
+    if (!user) return
     await deleteDoc(doc(db, 'documents', id))
   }
 

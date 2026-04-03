@@ -29,10 +29,12 @@ export function useEvents() {
   }
 
   const updateEvent = async (id: string, updates: Partial<EventItem>) => {
+    if (!user) return
     await updateDoc(doc(db, 'events', id), updates as UpdateData<EventItem>)
   }
 
   const deleteEvent = async (id: string) => {
+    if (!user) return
     await deleteDoc(doc(db, 'events', id))
   }
 

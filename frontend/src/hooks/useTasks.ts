@@ -29,10 +29,12 @@ export function useTasks() {
   }
 
   const updateTask = async (id: string, updates: Partial<TaskItem>) => {
+    if (!user) return
     await updateDoc(doc(db, 'tasks', id), updates as UpdateData<TaskItem>)
   }
 
   const deleteTask = async (id: string) => {
+    if (!user) return
     await deleteDoc(doc(db, 'tasks', id))
   }
 

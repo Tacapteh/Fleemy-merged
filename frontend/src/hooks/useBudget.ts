@@ -29,10 +29,12 @@ export function useBudget() {
   }
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
+    if (!user) return
     await updateDoc(doc(db, 'transactions', id), updates as UpdateData<Transaction>)
   }
 
   const deleteTransaction = async (id: string) => {
+    if (!user) return
     await deleteDoc(doc(db, 'transactions', id))
   }
 
