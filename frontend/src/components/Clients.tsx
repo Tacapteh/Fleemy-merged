@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, X, Trash2, Edit2, Mail, Phone, Building2, Search } from 'lucide-react'
 import { useClients } from '../hooks/useClients'
+import { useToast } from '../context/ToastContext'
 import type { Client } from '../types'
 
 type StatusFilter = 'all' | 'active' | 'lead' | 'inactive'
@@ -24,6 +25,7 @@ const EMPTY_FORM = {
 
 export function Clients() {
   const { clients, addClient, updateClient, deleteClient } = useClients()
+  const { toast } = useToast()
 
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -55,8 +57,10 @@ export function Clients() {
     if (!form.name.trim() || !form.email.trim()) return
     if (editingId) {
       await updateClient(editingId, form)
+      toast('Client mis à jour')
     } else {
       await addClient(form)
+      toast('Client ajouté')
     }
     setShowModal(false)
   }
