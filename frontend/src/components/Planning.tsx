@@ -29,7 +29,7 @@ function toPx(minutes: number) {
 }
 function pxToMin(px: number) {
   const raw = (px / HOUR_H) * 60 + DAY_START * 60
-  return Math.max(DAY_START * 60, Math.min((DAY_END - 1) * 60, Math.round(raw / 15) * 15))
+  return Math.max(DAY_START * 60, Math.min((DAY_END - 1) * 60, Math.round(raw / 60) * 60))
 }
 function toTimeStr(min: number) {
   return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
@@ -56,9 +56,11 @@ interface GridProps {
   onDeleteEvent: (id: string) => void
   onDragStart: (e: React.DragEvent, item: TaskItem | EventItem) => void
   onDrop: (e: React.DragEvent, day: Date) => void
+  onEditTask: (task: TaskItem) => void
+  onEditEvent: (ev: EventItem) => void
 }
 
-function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTask, onCompleteTask, onDeleteEvent, onDragStart, onDrop }: GridProps) {
+function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTask, onCompleteTask, onDeleteEvent, onDragStart, onDrop, onEditTask, onEditEvent }: GridProps) {
   const totalH = HOURS.length * HOUR_H
   const isToday = (d: Date) => isSameDay(d, new Date())
 
@@ -146,7 +148,7 @@ function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTas
                       key={ev.id}
                       draggable
                       onDragStart={e => { e.stopPropagation(); onDragStart(e, ev) }}
-                      onClick={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); onEditEvent(ev) }}
                       title={`${ev.title} — ${ev.startTime}–${ev.endTime}`}
                       className="absolute left-1 right-1 rounded-lg overflow-hidden cursor-grab active:cursor-grabbing group select-none z-10"
                       style={{
@@ -184,7 +186,7 @@ function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTas
                       key={task.id}
                       draggable={!done}
                       onDragStart={e => { e.stopPropagation(); if (!done) onDragStart(e, task) }}
-                      onClick={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); if (!done) onEditTask(task) }}
                       title={task.title}
                       className={`absolute left-1 right-1 rounded-lg overflow-hidden select-none z-10 group ${done ? 'opacity-40' : 'cursor-grab active:cursor-grabbing'}`}
                       style={{ top: top + 1, height: h - 2, background: bg, borderLeft: `3px solid ${border}` }}
@@ -296,6 +298,7 @@ export function Planning() {
   const [current, setCurrent] = useState(new Date())
   const [modal, setModal] = useState(false)
   const [mType, setMType] = useState<'task' | 'event'>('task')
+  const [editingId, setEditingId] = useState<string | null>(null)
   const dragRef = useRef<DragInfo | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
 
@@ -335,26 +338,69 @@ export function Planning() {
     const d = date ?? format(new Date(), 'yyyy-MM-dd')
     const st = startMin ? toTimeStr(startMin) : '09:00'
     const et = startMin ? toTimeStr(Math.min(startMin + 60, (DAY_END - 1) * 60)) : '10:00'
+    setEditingId(null)
     setMType(type)
-    if (type === 'task') setTForm(f => ({ ...f, date: d, startTime: st, endTime: et }))
-    else setEForm(f => ({ ...f, date: d, startTime: st, endTime: et }))
+    if (type === 'task') setTForm(f => ({ ...f, date: d, startTime: st, endTime: et, title: '', description: '' }))
+    else setEForm(f => ({ ...f, date: d, startTime: st, endTime: et, title: '' }))
+    setModal(true)
+  }
+
+  const openEditTask = (task: TaskItem) => {
+    setEditingId(task.id)
+    setMType('task')
+    setTForm({
+      title: task.title,
+      date: task.date,
+      startTime: task.startTime ?? '09:00',
+      endTime: task.endTime ?? '10:00',
+      priority: (task.priority ?? 2) as 1 | 2 | 3,
+      status: task.status,
+      description: task.description ?? '',
+    })
+    setModal(true)
+  }
+
+  const openEditEvent = (ev: EventItem) => {
+    setEditingId(ev.id)
+    setMType('event')
+    setEForm({
+      title: ev.title,
+      date: ev.date,
+      startTime: ev.startTime ?? '09:00',
+      endTime: ev.endTime ?? '10:00',
+      clientId: ev.clientId ?? '',
+      isBillable: ev.isBillable ?? true,
+      paymentStatus: ev.paymentStatus,
+    })
     setModal(true)
   }
 
   const saveTask = async () => {
     if (!tForm.title.trim()) return
-    await addTask({ ...tForm, type: 'task', progress: 0, tags: [] } as Omit<TaskItem, 'id'>)
-    toast('Tâche créée')
+    if (editingId) {
+      await updateTask(editingId, tForm)
+      toast('Tâche modifiée')
+    } else {
+      await addTask({ ...tForm, type: 'task', progress: 0, tags: [] } as Omit<TaskItem, 'id'>)
+      toast('Tâche créée')
+    }
     setModal(false)
+    setEditingId(null)
     setTForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', priority: 2, status: 'todo', description: '' })
   }
 
   const saveEvent = async () => {
     if (!eForm.title.trim()) return
-    const client = clients.find(c => c.id === eForm.clientId)
-    await addEvent({ ...eForm, type: 'event', clientName: client?.name } as Omit<EventItem, 'id'>)
-    toast('Créneau créé')
+    if (editingId) {
+      await updateEvent(editingId, eForm)
+      toast('Créneau modifié')
+    } else {
+      const client = clients.find(c => c.id === eForm.clientId)
+      await addEvent({ ...eForm, type: 'event', clientName: client?.name } as Omit<EventItem, 'id'>)
+      toast('Créneau créé')
+    }
     setModal(false)
+    setEditingId(null)
     setEForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid' })
   }
 
@@ -475,19 +521,25 @@ export function Planning() {
             className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
             style={{ background: '#0e0e11', border: '1px solid #1e1e24' }}
           >
-            {/* Tabs */}
+            {/* Header */}
             <div className="flex items-center justify-between mb-5">
-              <div className="flex bg-[#0a0a0d] rounded-xl p-0.5 border border-[#1a1a1f]">
-                <button onClick={() => setMType('task')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'task' ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
-                  Tâche
-                </button>
-                <button onClick={() => setMType('event')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'event' ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
-                  Créneau
-                </button>
-              </div>
-              <button onClick={() => setModal(false)}
+              {editingId ? (
+                <span className="text-sm font-semibold text-zinc-300">
+                  {mType === 'task' ? 'Modifier la tâche' : 'Modifier le créneau'}
+                </span>
+              ) : (
+                <div className="flex bg-[#0a0a0d] rounded-xl p-0.5 border border-[#1a1a1f]">
+                  <button onClick={() => setMType('task')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'task' ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                    Tâche
+                  </button>
+                  <button onClick={() => setMType('event')}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'event' ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                    Créneau
+                  </button>
+                </div>
+              )}
+              <button onClick={() => { setModal(false); setEditingId(null) }}
                 className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors">
                 <X size={15} />
               </button>
