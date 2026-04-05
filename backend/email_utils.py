@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import HTTPException
 
-from .pdf_utils import document_filename
+from pdf_utils import document_filename
 
 logger = logging.getLogger(__name__)
 

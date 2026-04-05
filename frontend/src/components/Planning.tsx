@@ -510,6 +510,8 @@ export function Planning() {
             onDeleteEvent={id => { deleteEvent(id); toast('Créneau supprimé') }}
             onDragStart={handleDragStart}
             onDrop={handleDrop}
+            onEditTask={openEditTask}
+            onEditEvent={openEditEvent}
           />
         )}
       </div>
