@@ -297,7 +297,7 @@ export function Planning() {
   const [view, setView] = useState<ViewMode>('week')
   const [current, setCurrent] = useState(new Date())
   const [modal, setModal] = useState(false)
-  const [mType, setMType] = useState<'task' | 'event'>('task')
+  const [mType, setMType] = useState<'task' | 'event'>('event')
   const [editingId, setEditingId] = useState<string | null>(null)
   const dragRef = useRef<DragInfo | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -396,7 +396,8 @@ export function Planning() {
       toast('Créneau modifié')
     } else {
       const client = clients.find(c => c.id === eForm.clientId)
-      await addEvent({ ...eForm, type: 'event', clientName: client?.name } as Omit<EventItem, 'id'>)
+      const extra = client?.name ? { clientName: client.name } : {}
+      await addEvent({ ...eForm, type: 'event', ...extra } as Omit<EventItem, 'id'>)
       toast('Créneau créé')
     }
     setModal(false)
@@ -498,13 +499,13 @@ export function Planning() {
         {view === 'month' ? (
           <MonthView
             days={days} refDate={current} tasks={tasks} events={events}
-            onDayClick={d => openModal('task', format(d, 'yyyy-MM-dd'))}
+            onDayClick={d => openModal('event', format(d, 'yyyy-MM-dd'))}
           />
         ) : (
           <TimeGrid
             days={days} tasks={tasks} events={events}
             nowPx={nowPx} showNow={showNow}
-            onDayClick={(day, min) => openModal('task', format(day, 'yyyy-MM-dd'), min)}
+            onDayClick={(day, min) => openModal('event', format(day, 'yyyy-MM-dd'), min)}
             onDeleteTask={id => { deleteTask(id); toast('Tâche supprimée') }}
             onCompleteTask={id => { updateTask(id, { status: 'done' }); toast('Terminée ✓') }}
             onDeleteEvent={id => { deleteEvent(id); toast('Créneau supprimé') }}
