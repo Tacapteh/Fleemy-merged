@@ -69,10 +69,10 @@ export function Sidebar({ activeTab, onTabChange, isOpen, onToggle, user }: Side
               key={id}
               onClick={() => { onTabChange(id); if (isOpen) onToggle() }}
               className={`
-                w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+                w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150
                 ${activeTab === id
-                  ? 'bg-emerald-500/15 text-emerald-400'
-                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                  ? 'bg-indigo-500/20 text-indigo-400 border-l-2 border-indigo-400 pl-[10px]'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl'
                 }
               `}
             >
