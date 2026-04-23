@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X, Trash2, Edit2, Mail, Phone, Building2, Search, Users } from 'lucide-react'
 import { useClients } from '../hooks/useClients'
 import { useToast } from '../context/ToastContext'
@@ -91,7 +92,7 @@ export function Clients() {
         </div>
         <button
           onClick={openAddModal}
-          className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
         >
           <Plus size={16} /> Nouveau client
         </button>
@@ -138,7 +139,7 @@ export function Clients() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(client => (
-            <div key={client.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 group">
+            <div key={client.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 group">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-white truncate">{client.name}</h3>
@@ -194,70 +195,86 @@ export function Clients() {
       )}
 
       {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div role="dialog" aria-modal="true" className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">
-                {editingId ? 'Modifier le client' : 'Nouveau client'}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="text-zinc-500 hover:text-white">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <input
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                placeholder="Nom *"
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              />
-              <input
-                type="email"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                placeholder="Email *"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              />
-              <input
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                placeholder="Entreprise"
-                value={form.company}
-                onChange={e => setForm(f => ({ ...f, company: e.target.value }))}
-              />
-              <input
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                placeholder="Téléphone"
-                value={form.phone}
-                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-              />
-              <input
-                type="number"
-                min={0}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                placeholder="Taux horaire (€/h)"
-                value={form.hourlyRate || ''}
-                onChange={e => setForm(f => ({ ...f, hourlyRate: Number(e.target.value) }))}
-              />
-              <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                value={form.status}
-                onChange={e => setForm(f => ({ ...f, status: e.target.value as 'active' | 'lead' | 'inactive' }))}
-              >
-                <option value="active">Actif</option>
-                <option value="lead">Prospect</option>
-                <option value="inactive">Inactif</option>
-              </select>
-              <button
-                onClick={handleSave}
-                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                {editingId ? 'Mettre à jour' : 'Créer le client'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div
+            key="clients-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              role="dialog"
+              aria-modal="true"
+              className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-white">
+                  {editingId ? 'Modifier le client' : 'Nouveau client'}
+                </h3>
+                <button onClick={() => setShowModal(false)} className="text-zinc-500 hover:text-white">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <input
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Nom *"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                />
+                <input
+                  type="email"
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Email *"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                />
+                <input
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Entreprise"
+                  value={form.company}
+                  onChange={e => setForm(f => ({ ...f, company: e.target.value }))}
+                />
+                <input
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Téléphone"
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                />
+                <input
+                  type="number"
+                  min={0}
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Taux horaire (€/h)"
+                  value={form.hourlyRate || ''}
+                  onChange={e => setForm(f => ({ ...f, hourlyRate: Number(e.target.value) }))}
+                />
+                <select
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 rounded-xl px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:outline-none"
+                  value={form.status}
+                  onChange={e => setForm(f => ({ ...f, status: e.target.value as 'active' | 'lead' | 'inactive' }))}
+                >
+                  <option value="active">Actif</option>
+                  <option value="lead">Prospect</option>
+                  <option value="inactive">Inactif</option>
+                </select>
+                <button
+                  onClick={handleSave}
+                  className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
+                >
+                  {editingId ? 'Mettre à jour' : 'Créer le client'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
