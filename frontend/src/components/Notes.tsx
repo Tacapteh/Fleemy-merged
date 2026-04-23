@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X, Trash2, Search, Flag, CheckSquare, Square, StickyNote } from 'lucide-react'
 import { useNotes } from '../hooks/useNotes'
 import { useToast } from '../context/ToastContext'
@@ -104,7 +105,7 @@ export function Notes() {
         </div>
         <button
           onClick={openAdd}
-          className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
         >
           <Plus size={16} /> Nouvelle note
         </button>
@@ -143,7 +144,7 @@ export function Notes() {
           title="Aucune note"
           description="Créez votre première note pour garder une trace de vos idées."
           action={
-            <button onClick={openAdd} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors">
+            <button onClick={openAdd} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors">
               Nouvelle note
             </button>
           }
@@ -153,7 +154,7 @@ export function Notes() {
           {filtered.map(note => (
             <div
               key={note.id}
-              className={`bg-zinc-900 border rounded-xl p-4 group cursor-pointer transition-colors ${
+              className={`bg-zinc-900 border rounded-2xl p-4 group cursor-pointer transition-colors ${
                 note.isDone ? 'border-zinc-800 opacity-60' : 'border-zinc-800 hover:border-zinc-700'
               }`}
               onClick={() => openEdit(note)}
@@ -198,65 +199,81 @@ export function Notes() {
       )}
 
       {/* Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div role="dialog" aria-modal="true" className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">
-                {editingId ? 'Modifier la note' : 'Nouvelle note'}
-              </h3>
-              <button onClick={() => setShowForm(false)} className="text-zinc-500 hover:text-white">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <input
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                placeholder="Titre *"
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              />
-              <textarea
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500 resize-none"
-                rows={4}
-                placeholder="Contenu..."
-                value={form.content}
-                onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-              />
-              <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                value={form.priority}
-                onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) as 1|2|3 }))}
-              >
-                <option value={1}>🔴 Haute priorité</option>
-                <option value={2}>🟡 Priorité normale</option>
-                <option value={3}>⚪ Faible priorité</option>
-              </select>
-              <input
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                placeholder="Tags (séparés par des virgules)"
-                value={form.tags}
-                onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
-              />
-              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            key="notes-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              role="dialog"
+              aria-modal="true"
+              className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-white">
+                  {editingId ? 'Modifier la note' : 'Nouvelle note'}
+                </h3>
+                <button onClick={() => setShowForm(false)} className="text-zinc-500 hover:text-white">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="space-y-3">
                 <input
-                  type="checkbox"
-                  className="accent-emerald-500"
-                  checked={form.isDone}
-                  onChange={e => setForm(f => ({ ...f, isDone: e.target.checked }))}
+                  className="w-full bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Titre *"
+                  value={form.title}
+                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                 />
-                Marquer comme terminée
-              </label>
-              <button
-                onClick={handleSave}
-                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                {editingId ? 'Mettre à jour' : 'Créer la note'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <textarea
+                  className="w-full bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none resize-none"
+                  rows={4}
+                  placeholder="Contenu..."
+                  value={form.content}
+                  onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+                />
+                <select
+                  className="w-full bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:outline-none"
+                  value={form.priority}
+                  onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) as 1|2|3 }))}
+                >
+                  <option value={1}>🔴 Haute priorité</option>
+                  <option value={2}>🟡 Priorité normale</option>
+                  <option value={3}>⚪ Faible priorité</option>
+                </select>
+                <input
+                  className="w-full bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
+                  placeholder="Tags (séparés par des virgules)"
+                  value={form.tags}
+                  onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
+                />
+                <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="accent-emerald-500"
+                    checked={form.isDone}
+                    onChange={e => setForm(f => ({ ...f, isDone: e.target.checked }))}
+                  />
+                  Marquer comme terminée
+                </label>
+                <button
+                  onClick={handleSave}
+                  className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
+                >
+                  {editingId ? 'Mettre à jour' : 'Créer la note'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
