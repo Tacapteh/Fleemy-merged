@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X, Trash2, TrendingUp, TrendingDown, PiggyBank, Receipt } from 'lucide-react'
 import { useBudget } from '../hooks/useBudget'
 import { useToast } from '../context/ToastContext'
@@ -23,6 +24,22 @@ const TYPE_COLORS: Record<TxType, string> = {
 }
 
 const CATEGORIES = ['Salaire', 'Freelance', 'Loyer', 'Alimentation', 'Transport', 'Abonnement', 'Santé', 'Loisirs', 'Épargne', 'Autre']
+
+function useCountUp(target: number, duration = 800) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    const start = performance.now()
+    let raf: number
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1)
+      setValue(Math.round(target * progress))
+      if (progress < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, duration])
+  return value
+}
 
 export function Budget() {
   const { transactions, addTransaction, deleteTransaction } = useBudget()
@@ -49,6 +66,11 @@ export function Budget() {
     const savings = monthTx.filter(t => t.type === 'savings').reduce((s, t) => s + t.amount, 0)
     return { income, expense, savings, balance: income - expense - savings }
   }, [transactions, monthStart])
+
+  const animIncome  = useCountUp(stats.income)
+  const animExpense = useCountUp(stats.expense)
+  const animSavings = useCountUp(stats.savings)
+  const animBalance = useCountUp(Math.abs(stats.balance))
 
   // Category breakdown for chart
   const categoryData = useMemo(() => {
@@ -100,12 +122,12 @@ export function Budget() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Revenus', value: stats.income, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-          { label: 'Dépenses', value: stats.expense, icon: TrendingDown, color: 'text-red-400', bg: 'bg-red-500/10' },
-          { label: 'Épargne', value: stats.savings, icon: PiggyBank, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-          { label: 'Solde net', value: stats.balance, icon: TrendingUp, color: stats.balance >= 0 ? 'text-emerald-400' : 'text-red-400', bg: stats.balance >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10' },
+          { label: 'Revenus',  value: animIncome,  icon: TrendingUp,  color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+          { label: 'Dépenses', value: animExpense, icon: TrendingDown, color: 'text-red-400',     bg: 'bg-red-500/10' },
+          { label: 'Épargne',  value: animSavings, icon: PiggyBank,    color: 'text-blue-400',    bg: 'bg-blue-500/10' },
+          { label: 'Solde net', value: stats.balance >= 0 ? animBalance : -animBalance, icon: TrendingUp, color: stats.balance >= 0 ? 'text-emerald-400' : 'text-red-400', bg: stats.balance >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+          <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
             <div className={`${bg} w-9 h-9 rounded-lg flex items-center justify-center mb-3`}>
               <Icon size={18} className={color} />
             </div>
@@ -117,7 +139,7 @@ export function Budget() {
 
       {/* Chart */}
       {categoryData.length > 0 && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
           <h2 className="text-sm font-medium text-zinc-400 mb-4">Dépenses par catégorie (ce mois)</h2>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={categoryData}>
@@ -139,7 +161,7 @@ export function Budget() {
       )}
 
       {/* Transactions list */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl">
         <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
           <h2 className="text-sm font-medium text-white">Transactions</h2>
           <div className="flex gap-1">
@@ -189,63 +211,79 @@ export function Budget() {
       </div>
 
       {/* Add transaction modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div role="dialog" aria-modal="true" className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-white">Nouvelle transaction</h3>
-              <button onClick={() => setShowForm(false)} className="text-zinc-500 hover:text-white">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <input
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
-                placeholder="Description"
-                value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              />
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                placeholder="Montant (€)"
-                value={form.amount || ''}
-                onChange={e => setForm(f => ({ ...f, amount: Number(e.target.value) }))}
-              />
-              <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                value={form.type}
-                onChange={e => setForm(f => ({ ...f, type: e.target.value as TxType }))}
-              >
-                <option value="income">Revenu</option>
-                <option value="expense">Dépense</option>
-                <option value="savings">Épargne</option>
-              </select>
-              <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                value={form.category}
-                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-              >
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <input
-                type="date"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
-                value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              />
-              <button
-                onClick={handleAdd}
-                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Ajouter
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showForm && (
+          <motion.div
+            key="budget-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              role="dialog"
+              aria-modal="true"
+              className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-white">Nouvelle transaction</h3>
+                <button onClick={() => setShowForm(false)} className="text-zinc-500 hover:text-white">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <input
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500"
+                  placeholder="Description"
+                  value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                />
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-3 py-2 text-white text-sm"
+                  placeholder="Montant (€)"
+                  value={form.amount || ''}
+                  onChange={e => setForm(f => ({ ...f, amount: Number(e.target.value) }))}
+                />
+                <select
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-3 py-2 text-white text-sm"
+                  value={form.type}
+                  onChange={e => setForm(f => ({ ...f, type: e.target.value as TxType }))}
+                >
+                  <option value="income">Revenu</option>
+                  <option value="expense">Dépense</option>
+                  <option value="savings">Épargne</option>
+                </select>
+                <select
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-3 py-2 text-white text-sm"
+                  value={form.category}
+                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                >
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <input
+                  type="date"
+                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-3 py-2 text-white text-sm"
+                  value={form.date}
+                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                />
+                <button
+                  onClick={handleAdd}
+                  className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
+                >
+                  Ajouter
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
