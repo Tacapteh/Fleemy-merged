@@ -208,7 +208,7 @@ export function Documents() {
                   <Send size={14} />
                 </button>
                 <select
-                  className="bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-xs text-zinc-300 focus:outline-none"
+                  className="bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-2 py-1 text-xs text-zinc-300"
                   value={doc.status}
                   onChange={e => { updateDocument(doc.id, { status: e.target.value as DocStatus }); toast('Statut mis à jour') }}
                 >
