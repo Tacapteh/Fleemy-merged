@@ -1,0 +1,112 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e6]
+        - generic [ref=e8]: Fleemy
+      - navigation [ref=e9]:
+        - button "Dashboard" [ref=e10] [cursor=pointer]:
+          - img [ref=e11]
+          - text: Dashboard
+        - button "Planning" [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+          - text: Planning
+        - button "Budget" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+          - text: Budget
+        - button "Clients" [ref=e22] [cursor=pointer]:
+          - img [ref=e23]
+          - text: Clients
+        - button "Notes" [active] [ref=e28] [cursor=pointer]:
+          - img [ref=e29]
+          - text: Notes
+        - button "Documents" [ref=e32] [cursor=pointer]:
+          - img [ref=e33]
+          - text: Documents
+        - button "Paramètres" [ref=e36] [cursor=pointer]:
+          - img [ref=e37]
+          - text: Paramètres
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - img "avatar" [ref=e42]
+          - generic [ref=e43]:
+            - paragraph [ref=e44]: Utilisateur Démo
+            - paragraph [ref=e45]: demo@fleemy.app
+        - button "Déconnexion" [ref=e46] [cursor=pointer]:
+          - img [ref=e47]
+          - text: Déconnexion
+    - main [ref=e50]:
+      - generic [ref=e845]:
+        - generic [ref=e846]:
+          - generic [ref=e847]:
+            - heading "Notes" [level=1] [ref=e848]
+            - paragraph [ref=e849]: 3 notes en attente
+          - button "Nouvelle note" [ref=e850] [cursor=pointer]:
+            - img [ref=e851]
+            - text: Nouvelle note
+        - generic [ref=e852]:
+          - generic [ref=e853]:
+            - img [ref=e854]
+            - textbox "Rechercher..." [ref=e857]
+          - generic [ref=e858]:
+            - button "Tout" [ref=e859] [cursor=pointer]
+            - button "En cours" [ref=e860] [cursor=pointer]
+            - button "Terminé" [ref=e861] [cursor=pointer]
+        - generic [ref=e862]:
+          - generic [ref=e863] [cursor=pointer]:
+            - generic [ref=e864]:
+              - button [ref=e865]:
+                - img [ref=e866]
+              - heading "Idées refonte portfolio" [level=3] [ref=e868]
+              - button [ref=e869]:
+                - img [ref=e870]
+            - paragraph [ref=e873]: Animation hero section, section témoignages, dark mode toggle
+            - generic [ref=e874]:
+              - generic [ref=e875]:
+                - generic [ref=e876]: portfolio
+                - generic [ref=e877]: design
+              - generic [ref=e878]:
+                - img [ref=e879]
+                - text: Haute
+          - generic [ref=e881] [cursor=pointer]:
+            - generic [ref=e882]:
+              - button [ref=e883]:
+                - img [ref=e884]
+              - heading "Tarifs 2026" [level=3] [ref=e886]
+              - button [ref=e887]:
+                - img [ref=e888]
+            - paragraph [ref=e891]: Augmenter le taux journalier de 15% minimum. Revoir les forfaits maintenance.
+            - generic [ref=e892]:
+              - generic [ref=e893]:
+                - generic [ref=e894]: business
+                - generic [ref=e895]: tarifs
+              - generic [ref=e896]:
+                - img [ref=e897]
+                - text: Normale
+          - generic [ref=e899] [cursor=pointer]:
+            - generic [ref=e900]:
+              - button [ref=e901]:
+                - img [ref=e902]
+              - heading "Checklist prospection" [level=3] [ref=e905]
+              - button [ref=e906]:
+                - img [ref=e907]
+            - paragraph [ref=e910]: "- LinkedIn Sales Navigator - Relancer anciens contacts - Réseaux freelance"
+            - generic [ref=e911]:
+              - generic [ref=e913]: prospection
+              - generic [ref=e914]:
+                - img [ref=e915]
+                - text: Normale
+          - generic [ref=e917] [cursor=pointer]:
+            - generic [ref=e918]:
+              - button [ref=e919]:
+                - img [ref=e920]
+              - heading "Stack technique 2026" [level=3] [ref=e922]
+              - button [ref=e923]:
+                - img [ref=e924]
+            - paragraph [ref=e927]: React 19 · Vite · TypeScript · Tailwind · Supabase ou Firebase
+            - generic [ref=e928]:
+              - generic [ref=e930]: tech
+              - generic [ref=e931]:
+                - img [ref=e932]
+                - text: Faible
+  - generic [ref=e176]: "0"

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, X, Trash2, Edit2, Mail, Phone, Building2, Search, Users } from 'lucide-react'
 import { useClients } from '../hooks/useClients'
 import { useToast } from '../context/ToastContext'
@@ -53,6 +53,13 @@ export function Clients() {
     })
     setShowModal(true)
   }
+
+  useEffect(() => {
+    if (!showModal) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowModal(false) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showModal])
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.email.trim()) return
@@ -189,7 +196,7 @@ export function Clients() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
+          <div role="dialog" aria-modal="true" className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-white">
                 {editingId ? 'Modifier le client' : 'Nouveau client'}

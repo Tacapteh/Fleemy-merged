@@ -388,6 +388,8 @@ export function Planning() {
   const dragRef = useRef<DragInfo | null>(null)
   const gridRef = useRef<HTMLDivElement>(null)
 
+  const [titleError, setTitleError] = useState(false)
+
   const [tForm, setTForm] = useState({
     title: '', date: format(new Date(), 'yyyy-MM-dd'),
     startTime: '09:00', endTime: '10:00',
@@ -442,8 +444,15 @@ export function Planning() {
 
   const closeModal = () => { setModal(false); setEditingId(null) }
 
+  useEffect(() => {
+    if (!modal) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeModal() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [modal])
+
   const saveTask = async () => {
-    if (!tForm.title.trim()) return
+    if (!tForm.title.trim()) { setTitleError(true); setTimeout(() => setTitleError(false), 600); return }
     const data = { ...tForm, ...(tForm.icon ? {} : { icon: undefined }), ...(tForm.color ? {} : { color: undefined }) }
     if (editingId) { await updateTask(editingId, data); toast('Tâche modifiée') }
     else { await addTask({ ...data, type: 'task', progress: 0, tags: [] } as Omit<TaskItem, 'id'>); toast('Tâche créée') }
@@ -451,7 +460,7 @@ export function Planning() {
   }
 
   const saveEvent = async () => {
-    if (!eForm.title.trim()) return
+    if (!eForm.title.trim()) { setTitleError(true); setTimeout(() => setTitleError(false), 600); return }
     if (editingId) { await updateEvent(editingId, eForm); toast('Créneau modifié') }
     else {
       const client = clients.find(c => c.id === eForm.clientId)
@@ -495,14 +504,14 @@ export function Planning() {
   return (
     <div className="flex flex-col h-full bg-[#0a0a0d]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b border-[#1a1a1f]">
-        <div className="flex items-center gap-4">
-          <h1 className="text-[15px] font-bold text-zinc-100 capitalize tracking-tight" style={{ fontFamily: "'Syne', sans-serif" }}>{title}</h1>
+      <div className="shrink-0 flex flex-col gap-2 px-4 py-3 border-b border-[#1a1a1f] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5 sm:gap-0">
+        <div className="flex items-center justify-between sm:gap-4">
+          <h1 className="text-[15px] font-bold text-zinc-100 capitalize tracking-tight truncate max-w-[180px] sm:max-w-none" style={{ fontFamily: "'Syne', sans-serif" }}>{title}</h1>
           <div className="flex bg-[#111114] rounded-lg p-0.5 border border-[#1a1a1f]">
             {(['day', 'week', 'month'] as ViewMode[]).map(v => (
               <button key={v} onClick={() => setView(v)}
                 className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === v ? 'bg-[#1e1e24] text-white shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}>
-                {v === 'day' ? 'Jour' : v === 'week' ? 'Semaine' : 'Mois'}
+                {v === 'day' ? 'Jour' : v === 'week' ? 'Sem.' : 'Mois'}
               </button>
             ))}
           </div>
@@ -511,7 +520,7 @@ export function Planning() {
           <button onClick={() => nav(-1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors"><ChevronLeft size={15} /></button>
           <button onClick={() => setCurrent(new Date())} className="px-2.5 py-1 text-xs bg-[#111114] hover:bg-[#1a1a1f] border border-[#1a1a1f] text-zinc-400 rounded-lg transition-colors">Aujourd'hui</button>
           <button onClick={() => nav(1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors"><ChevronRight size={15} /></button>
-          <div className="w-px h-4 bg-[#1a1a1f] mx-1" />
+          <div className="w-px h-4 bg-[#1a1a1f] mx-1 hidden sm:block" />
           <button onClick={() => openModal('task')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0e0e11] hover:bg-[#1a1a1f] border border-[#1a1a1f] text-zinc-300 rounded-lg text-xs font-semibold transition-colors">
             <Plus size={13} /> Tâche
           </button>
@@ -546,7 +555,7 @@ export function Planning() {
       {/* Modal */}
       {modal && (
         <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={closeModal}>
-          <div className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ background: '#0e0e11', border: '1px solid #1e1e24' }} onClick={e => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ background: '#0e0e11', border: '1px solid #1e1e24' }} onClick={e => e.stopPropagation()}>
 
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
@@ -566,8 +575,8 @@ export function Planning() {
             {mType === 'task' ? (
               <div className="space-y-3">
                 <input autoFocus placeholder="Titre de la tâche…"
-                  className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all"
-                  value={tForm.title} onChange={e => setTForm(f => ({ ...f, title: e.target.value }))}
+                  className={`w-full bg-[#0a0a0d] border rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-all ${titleError ? 'border-red-500 animate-[shake_0.3s_ease]' : 'border-[#1e1e24] focus:border-zinc-600'}`}
+                  value={tForm.title} onChange={e => { setTitleError(false); setTForm(f => ({ ...f, title: e.target.value })) }}
                   onKeyDown={e => e.key === 'Enter' && saveTask()} />
 
                 {/* Icon picker */}
@@ -641,8 +650,8 @@ export function Planning() {
             ) : (
               <div className="space-y-2.5">
                 <input autoFocus placeholder="Titre du créneau…"
-                  className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-indigo-500/40 transition-all"
-                  value={eForm.title} onChange={e => setEForm(f => ({ ...f, title: e.target.value }))}
+                  className={`w-full bg-[#0a0a0d] border rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-all ${titleError ? 'border-red-500 animate-[shake_0.3s_ease]' : 'border-[#1e1e24] focus:border-indigo-500/40'}`}
+                  value={eForm.title} onChange={e => { setTitleError(false); setEForm(f => ({ ...f, title: e.target.value })) }}
                   onKeyDown={e => e.key === 'Enter' && saveEvent()} />
 
                 <div className="grid grid-cols-2 gap-2">

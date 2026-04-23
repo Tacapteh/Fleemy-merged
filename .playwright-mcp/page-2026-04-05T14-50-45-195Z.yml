@@ -1,0 +1,108 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - button [ref=e4] [cursor=pointer]:
+      - img [ref=e190]
+    - complementary [ref=e6]:
+      - generic [ref=e7]:
+        - img [ref=e8]
+        - generic [ref=e10]: Fleemy
+      - navigation [ref=e11]:
+        - button "Dashboard" [ref=e12] [cursor=pointer]:
+          - img [ref=e13]
+          - text: Dashboard
+        - button "Planning" [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+          - text: Planning
+        - button "Budget" [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+          - text: Budget
+        - button "Clients" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+          - text: Clients
+        - button "Notes" [ref=e30] [cursor=pointer]:
+          - img [ref=e31]
+          - text: Notes
+        - button "Documents" [ref=e34] [cursor=pointer]:
+          - img [ref=e35]
+          - text: Documents
+        - button "Paramètres" [ref=e38] [cursor=pointer]:
+          - img [ref=e39]
+          - text: Paramètres
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - img "avatar" [ref=e44]
+          - generic [ref=e45]:
+            - paragraph [ref=e46]: Utilisateur Démo
+            - paragraph [ref=e47]: demo@fleemy.app
+        - button "Déconnexion" [ref=e48] [cursor=pointer]:
+          - img [ref=e49]
+          - text: Déconnexion
+    - main [ref=e52]:
+      - generic [ref=e191]:
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - heading "dimanche 5 avril 2026" [level=1] [ref=e540]
+            - generic [ref=e195]:
+              - button "Jour" [active] [ref=e196] [cursor=pointer]
+              - button "Semaine" [ref=e197] [cursor=pointer]
+              - button "Mois" [ref=e198] [cursor=pointer]
+          - generic [ref=e199]:
+            - button [ref=e200] [cursor=pointer]:
+              - img [ref=e201]
+            - button "Aujourd'hui" [ref=e203] [cursor=pointer]
+            - button [ref=e204] [cursor=pointer]:
+              - img [ref=e205]
+            - button "Tâche" [ref=e208] [cursor=pointer]:
+              - img [ref=e209]
+              - text: Tâche
+            - button "Créneau" [ref=e210] [cursor=pointer]:
+              - img [ref=e211]
+              - text: Créneau
+        - generic [ref=e213]:
+          - generic [ref=e214]:
+            - generic [ref=e216]: "07"
+            - generic [ref=e218]: "08"
+            - generic [ref=e220]: "09"
+            - generic [ref=e222]: "10"
+            - generic [ref=e224]: "11"
+            - generic [ref=e226]: "12"
+            - generic [ref=e228]: "13"
+            - generic [ref=e230]: "14"
+            - generic [ref=e232]: "15"
+            - generic [ref=e234]: "16"
+            - generic [ref=e236]: "17"
+            - generic [ref=e238]: "18"
+            - generic [ref=e240]: "19"
+            - generic [ref=e242]: "20"
+          - generic [ref=e243]:
+            - generic [ref=e245]:
+              - generic [ref=e246]: dim.
+              - generic [ref=e247]: "5"
+            - generic [ref=e267]:
+              - generic [ref=e542] [cursor=pointer]:
+                - paragraph [ref=e543]: Appel client Martin
+                - paragraph [ref=e544]: 11:00–12:00
+                - img [ref=e547]
+                - button [ref=e551]:
+                  - img [ref=e552]
+              - generic [ref=e555] [cursor=pointer]:
+                - generic [ref=e559]:
+                  - paragraph [ref=e560]: Refonte landing page
+                  - paragraph [ref=e561]: 09:00–12:00
+                - img [ref=e563]
+                - generic [ref=e565]:
+                  - button [ref=e566]:
+                    - img [ref=e567]
+                  - button [ref=e569]:
+                    - img [ref=e570]
+              - generic [ref=e573] [cursor=pointer]:
+                - generic [ref=e577]:
+                  - paragraph [ref=e578]: Rédiger devis Dupont
+                  - paragraph [ref=e579]: 14:00–15:00
+                - img [ref=e581]
+                - generic [ref=e583]:
+                  - button [ref=e584]:
+                    - img [ref=e585]
+                  - button [ref=e587]:
+                    - img [ref=e588]
+  - generic [ref=e173]: "0"

@@ -1,0 +1,47 @@
+[     133ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:21550
+[   82201ms] [ERROR] Failed to load team: FirebaseError: Expected first argument to doc() to be a CollectionReference, a DocumentReference or FirebaseFirestore @ http://localhost:5173/src/hooks/useTeam.ts:29
+[   82201ms] [ERROR] Failed to load team: FirebaseError: Expected first argument to doc() to be a CollectionReference, a DocumentReference or FirebaseFirestore @ http://localhost:5173/src/hooks/useTeam.ts:29
+[  651864ms] ReferenceError: useEffect is not defined
+    at Planning (http://localhost:5173/src/components/Planning.tsx?t=1776523339927:821:3)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:11548:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:14926:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:3699:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:3733:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19765:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19198:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19137:13)
+[  651867ms] ReferenceError: useEffect is not defined
+    at Planning (http://localhost:5173/src/components/Planning.tsx?t=1776523339927:821:3)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:11548:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:14926:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:15914:22)
+    at HTMLUnknownElement.callCallback2 (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:3674:22)
+    at Object.invokeGuardedCallbackDev (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:3699:24)
+    at invokeGuardedCallback (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:3733:39)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19765:15)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19198:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19137:13)
+[  651869ms] [ERROR] The above error occurred in the <Planning> component:
+
+    at Planning (http://localhost:5173/src/components/Planning.tsx?t=1776523339927:746:54)
+    at main
+    at div
+    at div
+    at App (http://localhost:5173/src/App.tsx?t=1776523339927:33:37)
+    at ToastProvider (http://localhost:5173/src/context/ToastContext.tsx:22:33)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:14031
+[  651870ms] ReferenceError: useEffect is not defined
+    at Planning (http://localhost:5173/src/components/Planning.tsx?t=1776523339927:821:3)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:11548:26)
+    at mountIndeterminateComponent (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:14926:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:15914:22)
+    at beginWork$1 (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19753:22)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19198:20)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19137:13)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:19116:15)
+    at recoverFromConcurrentError (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:18736:28)
+    at performSyncWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:18879:28)

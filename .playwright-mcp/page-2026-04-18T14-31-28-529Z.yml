@@ -1,0 +1,111 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e6]
+        - generic [ref=e8]: Fleemy
+      - navigation [ref=e9]:
+        - button "Dashboard" [ref=e10] [cursor=pointer]:
+          - img [ref=e11]
+          - text: Dashboard
+        - button "Planning" [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+          - text: Planning
+        - button "Budget" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+          - text: Budget
+        - button "Clients" [ref=e22] [cursor=pointer]:
+          - img [ref=e23]
+          - text: Clients
+        - button "Notes" [ref=e28] [cursor=pointer]:
+          - img [ref=e29]
+          - text: Notes
+        - button "Documents" [ref=e32] [cursor=pointer]:
+          - img [ref=e33]
+          - text: Documents
+        - button "Paramètres" [ref=e36] [cursor=pointer]:
+          - img [ref=e37]
+          - text: Paramètres
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - img "avatar" [ref=e42]
+          - generic [ref=e43]:
+            - paragraph [ref=e44]: Utilisateur Démo
+            - paragraph [ref=e45]: demo@fleemy.app
+        - button "Déconnexion" [ref=e46] [cursor=pointer]:
+          - img [ref=e47]
+          - text: Déconnexion
+    - main [ref=e50]:
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - heading "Bonjour 👋" [level=1] [ref=e53]
+          - paragraph [ref=e54]: samedi 18 avril 2026
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - img [ref=e58]
+            - paragraph [ref=e61]: 6 800 €
+            - paragraph [ref=e62]: Revenu du mois
+          - generic [ref=e63]:
+            - img [ref=e65]
+            - paragraph [ref=e68]: 1 019 €
+            - paragraph [ref=e69]: Dépenses du mois
+          - generic [ref=e70]:
+            - img [ref=e72]
+            - paragraph [ref=e77]: "2"
+            - paragraph [ref=e78]: Clients actifs
+          - generic [ref=e79]:
+            - img [ref=e81]
+            - paragraph [ref=e84]: "4"
+            - paragraph [ref=e85]: Tâches en cours
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - heading "Revenus vs Dépenses (6 mois)" [level=2] [ref=e88]
+            - application [ref=e91]:
+              - generic [ref=e105]:
+                - generic [ref=e106]:
+                  - generic [ref=e108]: nov.
+                  - generic [ref=e110]: déc.
+                  - generic [ref=e112]: janv.
+                  - generic [ref=e114]: févr.
+                  - generic [ref=e116]: mars
+                  - generic [ref=e118]: avr.
+                - generic [ref=e119]:
+                  - generic [ref=e121]: "0"
+                  - generic [ref=e123]: "2000"
+                  - generic [ref=e125]: "4000"
+                  - generic [ref=e127]: "6000"
+                  - generic [ref=e129]: "8000"
+          - generic [ref=e130]:
+            - heading "Actions rapides" [level=2] [ref=e131]
+            - generic [ref=e132]:
+              - button "Nouveau créneau" [ref=e133] [cursor=pointer]:
+                - img [ref=e134]
+                - generic [ref=e136]: Nouveau créneau
+              - button "Ajouter client" [ref=e137] [cursor=pointer]:
+                - img [ref=e138]
+                - generic [ref=e139]: Ajouter client
+              - button "Facture rapide" [ref=e140] [cursor=pointer]:
+                - img [ref=e141]
+                - generic [ref=e144]: Facture rapide
+              - button "Épargne" [ref=e145] [cursor=pointer]:
+                - img [ref=e146]
+                - generic [ref=e149]: Épargne
+        - generic [ref=e150]:
+          - generic [ref=e151]:
+            - heading "Créneaux aujourd'hui" [level=2] [ref=e152]:
+              - img [ref=e153]
+              - text: Créneaux aujourd'hui
+            - list [ref=e155]:
+              - listitem [ref=e156]:
+                - generic [ref=e157]: Appel client Martin
+                - generic [ref=e158]: 11:00–12:00
+          - generic [ref=e159]:
+            - heading "Tâches urgentes" [level=2] [ref=e160]:
+              - img [ref=e161]
+              - text: Tâches urgentes
+            - list [ref=e164]:
+              - listitem [ref=e165]:
+                - generic [ref=e167]: Refonte landing page
+              - listitem [ref=e168]:
+                - generic [ref=e170]: Réunion kick-off projet
+  - generic [ref=e171]: "0"

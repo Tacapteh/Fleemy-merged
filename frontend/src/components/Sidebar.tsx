@@ -7,8 +7,6 @@ import {
   FileText,
   Settings,
   Zap,
-  Menu,
-  X,
   LogOut,
   type LucideIcon,
 } from 'lucide-react'
@@ -47,14 +45,6 @@ export function Sidebar({ activeTab, onTabChange, isOpen, onToggle, user }: Side
           onClick={onToggle}
         />
       )}
-
-      {/* Mobile toggle button */}
-      <button
-        onClick={onToggle}
-        className="fixed top-4 left-4 z-30 lg:hidden bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-zinc-400 hover:text-white"
-      >
-        {isOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
 
       {/* Sidebar */}
       <aside

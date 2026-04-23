@@ -1,0 +1,33 @@
+[      80ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:21550
+[  203607ms] NotFoundError: Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.
+    at removeChild (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:8456:26)
+    at commitDeletionEffectsOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17510:21)
+    at commitDeletionEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17477:13)
+    at recursivelyTraverseMutationEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17674:17)
+    at commitMutationEffectsOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17699:15)
+    at recursivelyTraverseMutationEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17685:15)
+    at commitMutationEffectsOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17737:15)
+    at recursivelyTraverseMutationEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17685:15)
+    at commitMutationEffectsOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17699:15)
+    at recursivelyTraverseMutationEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17685:15)
+[  203610ms] [ERROR] The above error occurred in the <div> component:
+
+    at div
+    at Sidebar (http://localhost:5173/src/components/Sidebar.tsx:41:27)
+    at div
+    at App (http://localhost:5173/src/App.tsx:32:37)
+    at ToastProvider (http://localhost:5173/src/context/ToastContext.tsx:22:33)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries. @ http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:14031
+[  203614ms] NotFoundError: Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.
+    at removeChild (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:8456:26)
+    at commitDeletionEffectsOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17510:21)
+    at commitDeletionEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17477:13)
+    at recursivelyTraverseMutationEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17674:17)
+    at commitMutationEffectsOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17699:15)
+    at recursivelyTraverseMutationEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17685:15)
+    at commitMutationEffectsOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17737:15)
+    at recursivelyTraverseMutationEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17685:15)
+    at commitMutationEffectsOnFiber (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17699:15)
+    at recursivelyTraverseMutationEffects (http://localhost:5173/node_modules/.vite/deps/chunk-NUMECXU6.js?v=5e6f3835:17685:15)

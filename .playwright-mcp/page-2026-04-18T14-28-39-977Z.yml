@@ -1,0 +1,142 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e6]
+        - generic [ref=e8]: Fleemy
+      - navigation [ref=e9]:
+        - button "Dashboard" [ref=e10] [cursor=pointer]:
+          - img [ref=e11]
+          - text: Dashboard
+        - button "Planning" [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+          - text: Planning
+        - button "Budget" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+          - text: Budget
+        - button "Clients" [active] [ref=e22] [cursor=pointer]:
+          - img [ref=e23]
+          - text: Clients
+        - button "Notes" [ref=e28] [cursor=pointer]:
+          - img [ref=e29]
+          - text: Notes
+        - button "Documents" [ref=e32] [cursor=pointer]:
+          - img [ref=e33]
+          - text: Documents
+        - button "Paramètres" [ref=e36] [cursor=pointer]:
+          - img [ref=e37]
+          - text: Paramètres
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - img "avatar" [ref=e42]
+          - generic [ref=e43]:
+            - paragraph [ref=e44]: Utilisateur Démo
+            - paragraph [ref=e45]: demo@fleemy.app
+        - button "Déconnexion" [ref=e46] [cursor=pointer]:
+          - img [ref=e47]
+          - text: Déconnexion
+    - main [ref=e50]:
+      - generic [ref=e571]:
+        - generic [ref=e572]:
+          - generic [ref=e573]:
+            - heading "Clients" [level=1] [ref=e574]
+            - paragraph [ref=e575]: 4 clients
+          - button "Nouveau client" [ref=e576] [cursor=pointer]:
+            - img [ref=e577]
+            - text: Nouveau client
+        - generic [ref=e578]:
+          - generic [ref=e579]:
+            - img [ref=e580]
+            - textbox "Rechercher un client..." [ref=e583]: Sophie
+          - generic [ref=e584]:
+            - button "Tous" [ref=e585] [cursor=pointer]
+            - button "Actif" [ref=e586] [cursor=pointer]
+            - button "Prospect" [ref=e587] [cursor=pointer]
+            - button "Inactif" [ref=e588] [cursor=pointer]
+        - generic [ref=e589]:
+          - generic [ref=e590]:
+            - generic [ref=e591]:
+              - generic [ref=e592]:
+                - heading "Sophie Martin" [level=3] [ref=e593]
+                - paragraph [ref=e594]: Martin & Co
+              - generic [ref=e596]: Actif
+            - generic [ref=e597]:
+              - generic [ref=e598]:
+                - img [ref=e599]
+                - generic [ref=e602]: sophie@martin.fr
+              - generic [ref=e603]:
+                - img [ref=e604]
+                - generic [ref=e606]: 06 12 34 56 78
+              - generic [ref=e607]:
+                - img [ref=e608]
+                - generic [ref=e612]: Martin & Co
+            - paragraph [ref=e613]: 90 €/h
+            - generic [ref=e614]:
+              - button "Modifier" [ref=e615] [cursor=pointer]:
+                - img [ref=e616]
+                - text: Modifier
+              - button [ref=e618] [cursor=pointer]:
+                - img [ref=e619]
+          - generic [ref=e622]:
+            - generic [ref=e623]:
+              - generic [ref=e624]:
+                - heading "Tech Innov" [level=3] [ref=e625]
+                - paragraph [ref=e626]: Tech Innov SAS
+              - generic [ref=e628]: Actif
+            - generic [ref=e629]:
+              - generic [ref=e630]:
+                - img [ref=e631]
+                - generic [ref=e634]: contact@techinov.fr
+              - generic [ref=e635]:
+                - img [ref=e636]
+                - generic [ref=e640]: Tech Innov SAS
+            - paragraph [ref=e641]: 120 €/h
+            - generic [ref=e642]:
+              - button "Modifier" [ref=e643] [cursor=pointer]:
+                - img [ref=e644]
+                - text: Modifier
+              - button [ref=e646] [cursor=pointer]:
+                - img [ref=e647]
+          - generic [ref=e650]:
+            - generic [ref=e651]:
+              - generic [ref=e652]:
+                - heading "Startup ABC" [level=3] [ref=e653]
+                - paragraph [ref=e654]: ABC Labs
+              - generic [ref=e656]: Prospect
+            - generic [ref=e657]:
+              - generic [ref=e658]:
+                - img [ref=e659]
+                - generic [ref=e662]: hello@abclabs.io
+              - generic [ref=e663]:
+                - img [ref=e664]
+                - generic [ref=e666]: 07 98 76 54 32
+              - generic [ref=e667]:
+                - img [ref=e668]
+                - generic [ref=e672]: ABC Labs
+            - paragraph [ref=e673]: 75 €/h
+            - generic [ref=e674]:
+              - button "Modifier" [ref=e675] [cursor=pointer]:
+                - img [ref=e676]
+                - text: Modifier
+              - button [ref=e678] [cursor=pointer]:
+                - img [ref=e679]
+          - generic [ref=e682]:
+            - generic [ref=e683]:
+              - generic [ref=e684]:
+                - heading "Jean Dupont" [level=3] [ref=e685]
+                - paragraph [ref=e686]: Dupont Design
+              - generic [ref=e688]: Inactif
+            - generic [ref=e689]:
+              - generic [ref=e690]:
+                - img [ref=e691]
+                - generic [ref=e694]: jean@dupont.com
+              - generic [ref=e695]:
+                - img [ref=e696]
+                - generic [ref=e700]: Dupont Design
+            - generic [ref=e701]:
+              - button "Modifier" [ref=e702] [cursor=pointer]:
+                - img [ref=e703]
+                - text: Modifier
+              - button [ref=e705] [cursor=pointer]:
+                - img [ref=e706]
+  - generic [ref=e176]: "0"

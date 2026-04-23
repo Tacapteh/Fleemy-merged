@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Plus, X, Trash2, TrendingUp, TrendingDown, PiggyBank, Receipt } from 'lucide-react'
 import { useBudget } from '../hooks/useBudget'
 import { useToast } from '../context/ToastContext'
@@ -67,6 +67,13 @@ export function Budget() {
     [transactions, filterType]
   )
 
+  useEffect(() => {
+    if (!showForm) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowForm(false) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showForm])
+
   const handleAdd = async () => {
     if (!form.description.trim() || form.amount <= 0) return
     await addTransaction(form)
@@ -121,7 +128,7 @@ export function Budget() {
                 labelStyle={{ color: '#a1a1aa' }}
                 formatter={(v) => `${Number(v).toLocaleString('fr-FR')} €`}
               />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="value" radius={[4, 4, 0, 0]} minPointSize={4}>
                 {categoryData.map((_, i) => (
                   <Cell key={i} fill={`hsl(${210 + i * 30}, 70%, 55%)`} />
                 ))}
@@ -184,7 +191,7 @@ export function Budget() {
       {/* Add transaction modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
+          <div role="dialog" aria-modal="true" className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-white">Nouvelle transaction</h3>
               <button onClick={() => setShowForm(false)} className="text-zinc-500 hover:text-white">

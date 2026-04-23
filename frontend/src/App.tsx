@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Menu, X } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { LoginPage } from './pages/LoginPage'
 import { Sidebar } from './components/Sidebar'
@@ -55,9 +56,19 @@ export function App() {
         onToggle={() => setSidebarOpen(o => !o)}
         user={user}
       />
-      <main className="flex-1 overflow-y-auto">
-        {renderContent()}
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <div className="flex items-center h-14 px-4 lg:hidden border-b border-zinc-800 bg-zinc-950 shrink-0">
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
+          >
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        </div>
+        <main className="flex-1 overflow-y-auto">
+          {renderContent()}
+        </main>
+      </div>
     </div>
   )
 }

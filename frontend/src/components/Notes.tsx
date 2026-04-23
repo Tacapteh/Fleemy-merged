@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Plus, X, Trash2, Search, Flag, CheckSquare, Square, StickyNote } from 'lucide-react'
 import { useNotes } from '../hooks/useNotes'
 import { useToast } from '../context/ToastContext'
@@ -50,6 +50,13 @@ export function Notes() {
     })
     setShowForm(true)
   }
+
+  useEffect(() => {
+    if (!showForm) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowForm(false) }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showForm])
 
   const handleSave = async () => {
     if (!form.title.trim()) return
@@ -193,7 +200,7 @@ export function Notes() {
       {/* Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
+          <div role="dialog" aria-modal="true" className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-white">
                 {editingId ? 'Modifier la note' : 'Nouvelle note'}

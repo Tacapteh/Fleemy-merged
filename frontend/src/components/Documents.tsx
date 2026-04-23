@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Plus, X, Trash2, FileText, Download, Send } from 'lucide-react'
 import { useDocuments } from '../hooks/useDocuments'
 import { useClients } from '../hooks/useClients'
@@ -36,6 +36,7 @@ export function Documents() {
   const { toast } = useToast()
 
   const [showModal, setShowModal] = useState(false)
+  const [editingDoc, setEditingDoc] = useState<FleemyDocument | null>(null)
   const [filterType, setFilterType] = useState<DocType | 'all'>('all')
   const [filterStatus, setFilterStatus] = useState<DocStatus | 'all'>('all')
 
@@ -68,6 +69,16 @@ export function Documents() {
   const handleRemoveItem = (i: number) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }))
   const handleItemChange = (i: number, field: keyof DocumentItem, value: string | number) =>
     setForm(f => ({ ...f, items: f.items.map((item, idx) => idx === i ? { ...item, [field]: value } : item) }))
+
+  useEffect(() => {
+    const open = showModal || !!editingDoc
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setShowModal(false); setEditingDoc(null) }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showModal, editingDoc])
 
   const handleSave = async () => {
     if (!form.clientId || form.items.length === 0) return
@@ -170,7 +181,7 @@ export function Documents() {
       ) : (
         <div className="space-y-2">
           {filtered.map(doc => (
-            <div key={doc.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4 group">
+            <div key={doc.id} onClick={() => setEditingDoc(doc)} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4 group cursor-pointer hover:border-zinc-700 transition-colors">
               <FileText size={18} className="text-zinc-500 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -186,7 +197,7 @@ export function Documents() {
                   <span className="text-xs font-medium text-emerald-400">{doc.totalAmount.toLocaleString('fr-FR')} €</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                 <button onClick={() => downloadPdf(doc)} title="Télécharger PDF"
                   className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
                   <Download size={14} />
@@ -219,7 +230,7 @@ export function Documents() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+          <div role="dialog" aria-modal="true" className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-white">Nouveau document</h3>
               <button onClick={() => setShowModal(false)} className="text-zinc-500 hover:text-white">
@@ -300,6 +311,68 @@ export function Documents() {
                 className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors">
                 Créer le document
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit / view modal */}
+      {editingDoc && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setEditingDoc(null)}>
+          <div role="dialog" aria-modal="true" className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-white">
+                {editingDoc.type === 'invoice' ? 'Facture' : 'Devis'} — {editingDoc.clientName}
+              </h3>
+              <button onClick={() => setEditingDoc(null)} className="text-zinc-500 hover:text-white"><X size={18} /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-400">Montant TTC</span>
+                <span className="font-semibold text-emerald-400">{editingDoc.totalAmount.toLocaleString('fr-FR')} €</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-400">Date</span>
+                <span className="text-white">{editingDoc.date}</span>
+              </div>
+              {editingDoc.dueDate && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-400">Échéance</span>
+                  <span className="text-white">{editingDoc.dueDate}</span>
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-zinc-500 mb-1 block">Statut</label>
+                <select
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500"
+                  value={editingDoc.status}
+                  onChange={e => {
+                    const s = e.target.value as DocStatus
+                    updateDocument(editingDoc.id, { status: s })
+                    setEditingDoc({ ...editingDoc, status: s })
+                    toast('Statut mis à jour')
+                  }}
+                >
+                  {(Object.keys(STATUS_LABELS) as DocStatus[]).map(s => (
+                    <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                  ))}
+                </select>
+              </div>
+              {editingDoc.notes && (
+                <div>
+                  <p className="text-xs text-zinc-500 mb-1">Notes</p>
+                  <p className="text-sm text-zinc-300 bg-zinc-800 rounded-lg px-3 py-2">{editingDoc.notes}</p>
+                </div>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => { downloadPdf(editingDoc); setEditingDoc(null) }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm transition-colors">
+                  <Download size={14} /> PDF
+                </button>
+                <button onClick={() => { sendByEmail(editingDoc); setEditingDoc(null) }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm transition-colors">
+                  <Send size={14} /> Email
+                </button>
+              </div>
             </div>
           </div>
         </div>

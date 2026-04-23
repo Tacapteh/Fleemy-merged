@@ -1,0 +1,140 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - button [ref=e4] [cursor=pointer]:
+      - img [ref=e190]
+    - complementary [ref=e6]:
+      - generic [ref=e7]:
+        - img [ref=e8]
+        - generic [ref=e10]: Fleemy
+      - navigation [ref=e11]:
+        - button "Dashboard" [ref=e12] [cursor=pointer]:
+          - img [ref=e13]
+          - text: Dashboard
+        - button "Planning" [active] [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+          - text: Planning
+        - button "Budget" [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+          - text: Budget
+        - button "Clients" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+          - text: Clients
+        - button "Notes" [ref=e30] [cursor=pointer]:
+          - img [ref=e31]
+          - text: Notes
+        - button "Documents" [ref=e34] [cursor=pointer]:
+          - img [ref=e35]
+          - text: Documents
+        - button "Paramètres" [ref=e38] [cursor=pointer]:
+          - img [ref=e39]
+          - text: Paramètres
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - img "avatar" [ref=e44]
+          - generic [ref=e45]:
+            - paragraph [ref=e46]: Utilisateur Démo
+            - paragraph [ref=e47]: demo@fleemy.app
+        - button "Déconnexion" [ref=e48] [cursor=pointer]:
+          - img [ref=e49]
+          - text: Déconnexion
+    - main [ref=e52]:
+      - generic [ref=e191]:
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - heading "30 mars — 5 avr. 2026" [level=1] [ref=e194]
+            - generic [ref=e195]:
+              - button "Jour" [ref=e196] [cursor=pointer]
+              - button "Semaine" [ref=e197] [cursor=pointer]
+              - button "Mois" [ref=e198] [cursor=pointer]
+          - generic [ref=e199]:
+            - button [ref=e200] [cursor=pointer]:
+              - img [ref=e201]
+            - button "Aujourd'hui" [ref=e203] [cursor=pointer]
+            - button [ref=e204] [cursor=pointer]:
+              - img [ref=e205]
+            - button "Tâche" [ref=e208] [cursor=pointer]:
+              - img [ref=e209]
+              - text: Tâche
+            - button "Créneau" [ref=e210] [cursor=pointer]:
+              - img [ref=e211]
+              - text: Créneau
+        - generic [ref=e213]:
+          - generic [ref=e214]:
+            - generic [ref=e216]: "07"
+            - generic [ref=e218]: "08"
+            - generic [ref=e220]: "09"
+            - generic [ref=e222]: "10"
+            - generic [ref=e224]: "11"
+            - generic [ref=e226]: "12"
+            - generic [ref=e228]: "13"
+            - generic [ref=e230]: "14"
+            - generic [ref=e232]: "15"
+            - generic [ref=e234]: "16"
+            - generic [ref=e236]: "17"
+            - generic [ref=e238]: "18"
+            - generic [ref=e240]: "19"
+            - generic [ref=e242]: "20"
+          - generic [ref=e243]:
+            - generic [ref=e244]:
+              - generic [ref=e245]:
+                - generic [ref=e246]: lun.
+                - generic [ref=e247]: "30"
+              - generic [ref=e248]:
+                - generic [ref=e249]: mar.
+                - generic [ref=e250]: "31"
+              - generic [ref=e251]:
+                - generic [ref=e252]: mer.
+                - generic [ref=e253]: "1"
+              - generic [ref=e254]:
+                - generic [ref=e255]: jeu.
+                - generic [ref=e256]: "2"
+              - generic [ref=e257]:
+                - generic [ref=e258]: ven.
+                - generic [ref=e259]: "3"
+              - generic [ref=e260]:
+                - generic [ref=e261]: sam.
+                - generic [ref=e262]: "4"
+              - generic [ref=e263]:
+                - generic [ref=e264]: dim.
+                - generic [ref=e265]: "5"
+            - generic [ref=e266]:
+              - generic [ref=e412]:
+                - generic [ref=e442] [cursor=pointer]:
+                  - paragraph [ref=e443]: Session design sprint
+                  - paragraph [ref=e444]: 09:00–17:00
+                  - button [ref=e445]:
+                    - img [ref=e446]
+                - generic [ref=e449]:
+                  - generic [ref=e453]:
+                    - paragraph [ref=e454]: Livraison maquettes v2
+                    - paragraph [ref=e455]: 18:00–19:00
+                  - button [ref=e457] [cursor=pointer]:
+                    - img [ref=e458]
+              - generic [ref=e461]:
+                - generic [ref=e491] [cursor=pointer]:
+                  - paragraph [ref=e492]: Appel client Martin
+                  - paragraph [ref=e493]: 11:00–12:00
+                  - img [ref=e496]
+                  - button [ref=e500]:
+                    - img [ref=e501]
+                - generic [ref=e504] [cursor=pointer]:
+                  - generic [ref=e508]:
+                    - paragraph [ref=e509]: Refonte landing page
+                    - paragraph [ref=e510]: 09:00–12:00
+                  - img [ref=e512]
+                  - generic [ref=e514]:
+                    - button [ref=e515]:
+                      - img [ref=e516]
+                    - button [ref=e518]:
+                      - img [ref=e519]
+                - generic [ref=e522] [cursor=pointer]:
+                  - generic [ref=e526]:
+                    - paragraph [ref=e527]: Rédiger devis Dupont
+                    - paragraph [ref=e528]: 14:00–15:00
+                  - img [ref=e530]
+                  - generic [ref=e532]:
+                    - button [ref=e533]:
+                      - img [ref=e534]
+                    - button [ref=e536]:
+                      - img [ref=e537]
+  - generic [ref=e173]: "0"

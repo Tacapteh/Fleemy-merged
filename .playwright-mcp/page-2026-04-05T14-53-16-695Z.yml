@@ -1,0 +1,151 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - button [ref=e4] [cursor=pointer]:
+      - img [ref=e888]
+    - complementary [ref=e6]:
+      - generic [ref=e7]:
+        - img [ref=e8]
+        - generic [ref=e10]: Fleemy
+      - navigation [ref=e11]:
+        - button "Dashboard" [ref=e12] [cursor=pointer]:
+          - img [ref=e13]
+          - text: Dashboard
+        - button "Planning" [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+          - text: Planning
+        - button "Budget" [active] [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+          - text: Budget
+        - button "Clients" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+          - text: Clients
+        - button "Notes" [ref=e30] [cursor=pointer]:
+          - img [ref=e31]
+          - text: Notes
+        - button "Documents" [ref=e34] [cursor=pointer]:
+          - img [ref=e35]
+          - text: Documents
+        - button "Paramètres" [ref=e38] [cursor=pointer]:
+          - img [ref=e39]
+          - text: Paramètres
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - img "avatar" [ref=e44]
+          - generic [ref=e45]:
+            - paragraph [ref=e46]: Utilisateur Démo
+            - paragraph [ref=e47]: demo@fleemy.app
+        - button "Déconnexion" [ref=e48] [cursor=pointer]:
+          - img [ref=e49]
+          - text: Déconnexion
+    - main [ref=e52]:
+      - generic [ref=e889]:
+        - generic [ref=e890]:
+          - generic [ref=e891]:
+            - heading "Budget" [level=1] [ref=e892]
+            - paragraph [ref=e893]: avril 2026
+          - button "Transaction" [ref=e894] [cursor=pointer]:
+            - img [ref=e895]
+            - text: Transaction
+        - generic [ref=e896]:
+          - generic [ref=e897]:
+            - img [ref=e899]
+            - paragraph [ref=e902]: 3 600 €
+            - paragraph [ref=e903]: Revenus
+          - generic [ref=e904]:
+            - img [ref=e906]
+            - paragraph [ref=e909]: 899 €
+            - paragraph [ref=e910]: Dépenses
+          - generic [ref=e911]:
+            - img [ref=e913]
+            - paragraph [ref=e916]: 500 €
+            - paragraph [ref=e917]: Épargne
+          - generic [ref=e918]:
+            - img [ref=e920]
+            - paragraph [ref=e923]: 2 201 €
+            - paragraph [ref=e924]: Solde net
+        - generic [ref=e925]:
+          - heading "Dépenses par catégorie (ce mois)" [level=2] [ref=e926]
+          - application [ref=e929]:
+            - generic [ref=e940]:
+              - generic [ref=e941]:
+                - generic [ref=e943]: Loyer
+                - generic [ref=e945]: Abonnement
+              - generic [ref=e946]:
+                - generic [ref=e948]: "0"
+                - generic [ref=e950]: "250"
+                - generic [ref=e952]: "500"
+                - generic [ref=e954]: "750"
+                - generic [ref=e956]: "1000"
+        - generic [ref=e957]:
+          - generic [ref=e958]:
+            - heading "Transactions" [level=2] [ref=e959]
+            - generic [ref=e960]:
+              - button "Tout" [ref=e961] [cursor=pointer]
+              - button "Revenu" [ref=e962] [cursor=pointer]
+              - button "Dépense" [ref=e963] [cursor=pointer]
+              - button "Épargne" [ref=e964] [cursor=pointer]
+          - generic [ref=e965]:
+            - generic [ref=e966]:
+              - generic [ref=e967]:
+                - generic [ref=e968]:
+                  - generic [ref=e969]: Mission Tech Innov — design sprint
+                  - generic [ref=e970]: Freelance
+                - paragraph [ref=e971]: 2026-04-05
+              - generic [ref=e972]: +2 400 €
+              - button [ref=e973] [cursor=pointer]:
+                - img [ref=e974]
+            - generic [ref=e977]:
+              - generic [ref=e978]:
+                - generic [ref=e979]:
+                  - generic [ref=e980]: Loyer bureau partagé
+                  - generic [ref=e981]: Loyer
+                - paragraph [ref=e982]: 2026-04-05
+              - generic [ref=e983]: "-850 €"
+              - button [ref=e984] [cursor=pointer]:
+                - img [ref=e985]
+            - generic [ref=e988]:
+              - generic [ref=e989]:
+                - generic [ref=e990]:
+                  - generic [ref=e991]: "Facture #2025-03 Sophie Martin"
+                  - generic [ref=e992]: Freelance
+                - paragraph [ref=e993]: 2026-04-04
+              - generic [ref=e994]: +1 200 €
+              - button [ref=e995] [cursor=pointer]:
+                - img [ref=e996]
+            - generic [ref=e999]:
+              - generic [ref=e1000]:
+                - generic [ref=e1001]:
+                  - generic [ref=e1002]: Adobe Creative Cloud
+                  - generic [ref=e1003]: Abonnement
+                - paragraph [ref=e1004]: 2026-04-04
+              - generic [ref=e1005]: "-49 €"
+              - button [ref=e1006] [cursor=pointer]:
+                - img [ref=e1007]
+            - generic [ref=e1010]:
+              - generic [ref=e1011]:
+                - generic [ref=e1012]:
+                  - generic [ref=e1013]: Virement compte épargne
+                  - generic [ref=e1014]: Épargne
+                - paragraph [ref=e1015]: 2026-04-04
+              - generic [ref=e1016]: +500 €
+              - button [ref=e1017] [cursor=pointer]:
+                - img [ref=e1018]
+            - generic [ref=e1021]:
+              - generic [ref=e1022]:
+                - generic [ref=e1023]:
+                  - generic [ref=e1024]: Projet refonte Startup ABC
+                  - generic [ref=e1025]: Freelance
+                - paragraph [ref=e1026]: 2026-03-31
+              - generic [ref=e1027]: +3 200 €
+              - button [ref=e1028] [cursor=pointer]:
+                - img [ref=e1029]
+            - generic [ref=e1032]:
+              - generic [ref=e1033]:
+                - generic [ref=e1034]:
+                  - generic [ref=e1035]: SNCF + Uber
+                  - generic [ref=e1036]: Transport
+                - paragraph [ref=e1037]: 2026-03-26
+              - generic [ref=e1038]: "-120 €"
+              - button [ref=e1039] [cursor=pointer]:
+                - img [ref=e1040]
+  - generic [ref=e173]: "0"

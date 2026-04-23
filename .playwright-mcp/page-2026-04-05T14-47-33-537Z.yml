@@ -1,0 +1,8 @@
+- generic [ref=e6]:
+  - generic [ref=e7]:
+    - img [ref=e8]
+    - generic [ref=e10]: Fleemy
+  - paragraph [ref=e11]: Connectez-vous pour accéder à votre espace freelance
+  - button "Continuer avec Google" [ref=e12] [cursor=pointer]:
+    - img [ref=e13]
+    - text: Continuer avec Google

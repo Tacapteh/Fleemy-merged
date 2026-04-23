@@ -1,0 +1,242 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - button [ref=e4] [cursor=pointer]:
+      - img [ref=e190]
+    - complementary [ref=e6]:
+      - generic [ref=e7]:
+        - img [ref=e8]
+        - generic [ref=e10]: Fleemy
+      - navigation [ref=e11]:
+        - button "Dashboard" [ref=e12] [cursor=pointer]:
+          - img [ref=e13]
+          - text: Dashboard
+        - button "Planning" [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+          - text: Planning
+        - button "Budget" [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+          - text: Budget
+        - button "Clients" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+          - text: Clients
+        - button "Notes" [ref=e30] [cursor=pointer]:
+          - img [ref=e31]
+          - text: Notes
+        - button "Documents" [ref=e34] [cursor=pointer]:
+          - img [ref=e35]
+          - text: Documents
+        - button "Paramètres" [ref=e38] [cursor=pointer]:
+          - img [ref=e39]
+          - text: Paramètres
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - img "avatar" [ref=e44]
+          - generic [ref=e45]:
+            - paragraph [ref=e46]: Utilisateur Démo
+            - paragraph [ref=e47]: demo@fleemy.app
+        - button "Déconnexion" [ref=e48] [cursor=pointer]:
+          - img [ref=e49]
+          - text: Déconnexion
+    - main [ref=e52]:
+      - generic [ref=e191]:
+        - generic [ref=e192]:
+          - generic [ref=e193]:
+            - heading "avril 2026" [level=1] [ref=e591]
+            - generic [ref=e195]:
+              - button "Jour" [ref=e196] [cursor=pointer]
+              - button "Semaine" [ref=e197] [cursor=pointer]
+              - button "Mois" [ref=e198] [cursor=pointer]
+          - generic [ref=e199]:
+            - button [ref=e200] [cursor=pointer]:
+              - img [ref=e201]
+            - button "Aujourd'hui" [ref=e203] [cursor=pointer]
+            - button [ref=e204] [cursor=pointer]:
+              - img [ref=e205]
+            - button "Tâche" [ref=e208] [cursor=pointer]:
+              - img [ref=e209]
+              - text: Tâche
+            - button "Créneau" [ref=e210] [cursor=pointer]:
+              - img [ref=e211]
+              - text: Créneau
+        - generic [ref=e592]:
+          - generic [ref=e593]:
+            - generic [ref=e594]: Lun
+            - generic [ref=e595]: Mar
+            - generic [ref=e596]: Mer
+            - generic [ref=e597]: Jeu
+            - generic [ref=e598]: Ven
+            - generic [ref=e599]: Sam
+            - generic [ref=e600]: Dim
+          - generic [ref=e601]:
+            - generic [ref=e604] [cursor=pointer]: "30"
+            - generic [ref=e607] [cursor=pointer]: "31"
+            - generic [ref=e609] [cursor=pointer]:
+              - generic [ref=e610]: "1"
+              - img [ref=e611]
+            - generic [ref=e613] [cursor=pointer]:
+              - generic [ref=e614]: "2"
+              - img [ref=e615]
+            - generic [ref=e617] [cursor=pointer]:
+              - generic [ref=e618]: "3"
+              - img [ref=e619]
+            - generic [ref=e621] [cursor=pointer]:
+              - generic [ref=e622]: "4"
+              - generic [ref=e623]:
+                - generic [ref=e624]: Session design sprint
+                - generic [ref=e625]: Livraison maquettes v2
+            - generic [ref=e627] [cursor=pointer]:
+              - generic [ref=e628]: "5"
+              - generic [ref=e629]:
+                - generic [ref=e630]: Appel client Martin
+                - generic [ref=e631]: Refonte landing page
+                - generic [ref=e632]: +1 autres
+            - generic [ref=e634] [cursor=pointer]:
+              - generic [ref=e635]: "6"
+              - generic [ref=e636]:
+                - generic [ref=e637]: Démo produit
+                - generic [ref=e638]: Réunion kick-off projet
+                - generic [ref=e639]: +1 autres
+            - generic [ref=e641] [cursor=pointer]:
+              - generic [ref=e642]: "7"
+              - img [ref=e643]
+            - generic [ref=e645] [cursor=pointer]:
+              - generic [ref=e646]: "8"
+              - img [ref=e647]
+            - generic [ref=e649] [cursor=pointer]:
+              - generic [ref=e650]: "9"
+              - img [ref=e651]
+            - generic [ref=e653] [cursor=pointer]:
+              - generic [ref=e654]: "10"
+              - img [ref=e655]
+            - generic [ref=e657] [cursor=pointer]:
+              - generic [ref=e658]: "11"
+              - img [ref=e659]
+            - generic [ref=e661] [cursor=pointer]:
+              - generic [ref=e662]: "12"
+              - img [ref=e663]
+            - generic [ref=e665] [cursor=pointer]:
+              - generic [ref=e666]: "13"
+              - img [ref=e667]
+            - generic [ref=e669] [cursor=pointer]:
+              - generic [ref=e670]: "14"
+              - img [ref=e671]
+            - generic [ref=e673] [cursor=pointer]:
+              - generic [ref=e674]: "15"
+              - img [ref=e675]
+            - generic [ref=e677] [cursor=pointer]:
+              - generic [ref=e678]: "16"
+              - img [ref=e679]
+            - generic [ref=e681] [cursor=pointer]:
+              - generic [ref=e682]: "17"
+              - img [ref=e683]
+            - generic [ref=e685] [cursor=pointer]:
+              - generic [ref=e686]: "18"
+              - img [ref=e687]
+            - generic [ref=e689] [cursor=pointer]:
+              - generic [ref=e690]: "19"
+              - img [ref=e691]
+            - generic [ref=e693] [cursor=pointer]:
+              - generic [ref=e694]: "20"
+              - img [ref=e695]
+            - generic [ref=e697] [cursor=pointer]:
+              - generic [ref=e698]: "21"
+              - img [ref=e699]
+            - generic [ref=e701] [cursor=pointer]:
+              - generic [ref=e702]: "22"
+              - img [ref=e703]
+            - generic [ref=e705] [cursor=pointer]:
+              - generic [ref=e706]: "23"
+              - img [ref=e707]
+            - generic [ref=e709] [cursor=pointer]:
+              - generic [ref=e710]: "24"
+              - img [ref=e711]
+            - generic [ref=e713] [cursor=pointer]:
+              - generic [ref=e714]: "25"
+              - img [ref=e715]
+            - generic [ref=e717] [cursor=pointer]:
+              - generic [ref=e718]: "26"
+              - img [ref=e719]
+            - generic [ref=e721] [cursor=pointer]:
+              - generic [ref=e722]: "27"
+              - img [ref=e723]
+            - generic [ref=e725] [cursor=pointer]:
+              - generic [ref=e726]: "28"
+              - img [ref=e727]
+            - generic [ref=e729] [cursor=pointer]:
+              - generic [ref=e730]: "29"
+              - img [ref=e731]
+            - generic [ref=e733] [cursor=pointer]:
+              - generic [ref=e734]: "30"
+              - img [ref=e735]
+            - generic [ref=e738] [cursor=pointer]: "1"
+            - generic [ref=e741] [cursor=pointer]: "2"
+            - generic [ref=e744] [cursor=pointer]: "3"
+        - generic [ref=e746]:
+          - generic [ref=e747]:
+            - generic [ref=e748]:
+              - button "Tâche" [active] [ref=e749] [cursor=pointer]
+              - button "Créneau" [ref=e750] [cursor=pointer]
+            - button [ref=e751] [cursor=pointer]:
+              - img [ref=e752]
+          - generic [ref=e755]:
+            - textbox "Titre de la tâche…" [ref=e772]
+            - generic [ref=e757]:
+              - paragraph [ref=e773]: Icône
+              - generic [ref=e759]:
+                - button [ref=e774] [cursor=pointer]:
+                  - img [ref=e775]
+                - button [ref=e778] [cursor=pointer]:
+                  - img [ref=e779]
+                - button [ref=e783] [cursor=pointer]:
+                  - img [ref=e784]
+                - button [ref=e786] [cursor=pointer]:
+                  - img [ref=e787]
+                - button [ref=e790] [cursor=pointer]:
+                  - img [ref=e791]
+                - button [ref=e793] [cursor=pointer]:
+                  - img [ref=e794]
+                - button [ref=e798] [cursor=pointer]:
+                  - img [ref=e799]
+                - button [ref=e801] [cursor=pointer]:
+                  - img [ref=e802]
+                - button [ref=e807] [cursor=pointer]:
+                  - img [ref=e808]
+                - button [ref=e811] [cursor=pointer]:
+                  - img [ref=e812]
+                - button [ref=e815] [cursor=pointer]:
+                  - img [ref=e816]
+                - button [ref=e819] [cursor=pointer]:
+                  - img [ref=e820]
+                - button [ref=e822] [cursor=pointer]:
+                  - img [ref=e823]
+                - button [ref=e826] [cursor=pointer]:
+                  - img [ref=e827]
+            - generic [ref=e762]:
+              - paragraph [ref=e831]: Couleur
+              - generic [ref=e832]:
+                - button [ref=e833] [cursor=pointer]
+                - button [ref=e834] [cursor=pointer]
+                - button [ref=e835] [cursor=pointer]
+                - button [ref=e836] [cursor=pointer]
+                - button [ref=e837] [cursor=pointer]
+                - button [ref=e838] [cursor=pointer]
+                - button [ref=e839] [cursor=pointer]
+                - button [ref=e840] [cursor=pointer]
+            - generic [ref=e841]:
+              - textbox [ref=e842]: 2026-04-05
+              - generic [ref=e843]:
+                - textbox [ref=e844]: 09:00
+                - textbox [ref=e845]: 10:00
+            - generic [ref=e846]:
+              - button "Urgent" [ref=e847] [cursor=pointer]:
+                - img [ref=e848]
+                - text: Urgent
+              - button "Moyen" [ref=e850] [cursor=pointer]:
+                - img [ref=e851]
+                - text: Moyen
+              - button "Faible" [ref=e853] [cursor=pointer]:
+                - img [ref=e854]
+                - text: Faible
+            - textbox "Description (optionnel)" [ref=e857]
+            - button "Créer la tâche" [ref=e858] [cursor=pointer]
+  - generic [ref=e173]: "0"
