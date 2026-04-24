@@ -10,6 +10,7 @@ import {
 import { useTasks } from '../hooks/useTasks'
 import { useEvents } from '../hooks/useEvents'
 import { useClients } from '../hooks/useClients'
+import { useHistoricalEvents } from '../hooks/useHistoricalEvents'
 import { useToast } from '../context/ToastContext'
 import {
   format, addDays, addWeeks, addMonths,
@@ -108,11 +109,13 @@ interface FinancePanelProps {
   tasksTotal: number
   taskRevenue: number
   taskCosts: number
+  historicalRevenue: number
+  historicalCount: number
   open: boolean
   onToggle: () => void
 }
 
-function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, open, onToggle }: FinancePanelProps) {
+function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, historicalRevenue, historicalCount, open, onToggle }: FinancePanelProps) {
   const progress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0
   const rows = [
     { label: 'Encaissé',   value: stats.paid,    color: '#10b981' },
@@ -183,6 +186,18 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
                   <span className="text-[10px] text-zinc-500">Net</span>
                   <span className={`text-[11px] font-bold ${(taskRevenue + taskCosts) >= 0 ? 'text-white' : 'text-red-400'}`}>
                     {(taskRevenue + taskCosts).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {historicalCount > 0 && (
+              <div className="border-t border-[#1a1a1f] pt-2 space-y-1.5">
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-1">Historique importé</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-zinc-500">{historicalCount} événement{historicalCount > 1 ? 's' : ''}</span>
+                  <span className="text-[11px] font-semibold text-violet-400">
+                    {historicalRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                   </span>
                 </div>
               </div>
@@ -500,6 +515,7 @@ interface MonthProps {
   tasks: TaskItem[]
   events: EventItem[]
   clients: Client[]
+  historicalEvents: EventItem[]
   onEditTask: (task: TaskItem) => void
   onEditEvent: (ev: EventItem) => void
   onNavigateWeek: (day: Date) => void
@@ -507,7 +523,7 @@ interface MonthProps {
   onCreateEvent: (day: Date) => void
 }
 
-function MonthView({ days, refDate, tasks, events, onEditTask, onEditEvent, onNavigateWeek, onNavigateDay, onCreateEvent }: MonthProps) {
+function MonthView({ days, refDate, tasks, events, clients, historicalEvents, onEditTask, onEditEvent, onNavigateWeek, onNavigateDay, onCreateEvent }: MonthProps) {
   const today = new Date()
   const DOW = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
   const [menuDay, setMenuDay] = useState<string | null>(null)
@@ -580,6 +596,11 @@ function MonthView({ days, refDate, tasks, events, onEditTask, onEditEvent, onNa
                   </div>
                 )}
 
+                {/* Historical event indicator */}
+                {inMonth && historicalEvents.some(h => h.date === ds) && (
+                  <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-violet-500/60" title="Événements historiques" />
+                )}
+
                 {total === 0 && inMonth && (
                   <Plus size={12} className="absolute bottom-2 right-2 text-zinc-800 opacity-0 group-hover:opacity-100 transition-opacity" />
                 )}
@@ -620,6 +641,7 @@ export function Planning() {
   const { tasks, addTask, updateTask, deleteTask } = useTasks()
   const { events, addEvent, updateEvent, deleteEvent } = useEvents()
   const { clients } = useClients()
+  const { historicalEvents } = useHistoricalEvents()
   const { toast } = useToast()
 
   const [view, setView] = useState<ViewMode>('week')
@@ -853,6 +875,11 @@ export function Planning() {
     tasks.reduce((s, t) => t.montantTache !== undefined && t.montantTache < 0 ? s + t.montantTache : s, 0),
     [tasks]
   )
+  const historicalRevenue = useMemo(() =>
+    historicalEvents.reduce((s, e) => e.overridePrice ? s + e.overridePrice : s, 0),
+    [historicalEvents]
+  )
+  const historicalCount = historicalEvents.length
 
   const PAYMENT_LABELS: Record<string, string> = { paid: 'Payé', unpaid: 'Impayé', pending: 'En attente', 'not-worked': 'Non travaillé' }
 
@@ -900,6 +927,7 @@ export function Planning() {
               {view === 'month' ? (
                 <MonthView
                   days={days} refDate={current} tasks={tasks} events={events} clients={clients}
+                  historicalEvents={historicalEvents}
                   onEditTask={openEditTask} onEditEvent={openEditEvent}
                   onCreateEvent={d => openModal('event', format(d, 'yyyy-MM-dd'))}
                   onNavigateWeek={d => { setCurrent(d); setView('week') }}
@@ -928,6 +956,8 @@ export function Planning() {
           tasksTotal={tasks.length}
           taskRevenue={taskRevenue}
           taskCosts={taskCosts}
+          historicalRevenue={historicalRevenue}
+          historicalCount={historicalCount}
           open={panelOpen}
           onToggle={() => setPanelOpen(o => !o)}
         />
