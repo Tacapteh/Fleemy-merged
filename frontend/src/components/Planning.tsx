@@ -257,6 +257,9 @@ function PlanningTooltip({ tooltip, clients }: { tooltip: TooltipState; clients:
     const rev = eventRevenue(ev, clients)
     const amount = ev.isBillable && rev > 0 ? rev : null
     const ps = PAYMENT_STYLE[ev.paymentStatus] ?? PAYMENT_STYLE['not-worked']
+    const [startH, startM] = ev.startTime.split(':').map(Number)
+    const [endH, endM] = ev.endTime.split(':').map(Number)
+    const durationH = (endH + endM / 60) - (startH + startM / 60)
 
     return (
       <div
