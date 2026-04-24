@@ -432,6 +432,100 @@ export function Settings() {
             )}
           </div>
         )}
+        {/* ── Import ── */}
+        {activeTab === 'import' && (
+          <div>
+            <h2 className="text-lg font-bold text-white mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Import historique</h2>
+            <p className="text-sm text-zinc-600 mb-6">Importez un planning passé depuis un fichier Excel ou CSV</p>
+
+            {/* Upload zone */}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-[#1e1e24] hover:border-emerald-500/40 rounded-2xl p-8 flex flex-col items-center gap-3 cursor-pointer transition-colors mb-6 group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-[#111115] flex items-center justify-center group-hover:bg-emerald-500/10 transition-colors">
+                <Upload size={18} className="text-zinc-600 group-hover:text-emerald-400 transition-colors" />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-zinc-400">Cliquez pour sélectionner un fichier</p>
+                <p className="text-xs text-zinc-700 mt-0.5">.xlsx, .xls, .csv — colonnes : date, titre, heure_debut, heure_fin, client, statut, prix</p>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </div>
+
+            {/* Already imported count */}
+            {historicalEvents.length > 0 && (
+              <div className="flex items-center justify-between mb-4 bg-[#0e0e11] border border-[#1a1a1f] rounded-xl px-4 py-3">
+                <p className="text-sm text-zinc-400">
+                  <span className="font-semibold text-white">{historicalEvents.length}</span> événement{historicalEvents.length > 1 ? 's' : ''} importé{historicalEvents.length > 1 ? 's' : ''}
+                </p>
+                <button
+                  onClick={async () => { await clearHistoricalEvents(); toast('Historique effacé') }}
+                  className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 size={12} /> Effacer tout
+                </button>
+              </div>
+            )}
+
+            {/* Preview table */}
+            {importRows.length > 0 && (
+              <div className="bg-[#0e0e11] border border-[#1a1a1f] rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-[#1a1a1f] flex items-center justify-between">
+                  <p className="text-sm font-semibold text-white">{importRows.length} ligne{importRows.length > 1 ? 's' : ''} à importer</p>
+                  <button onClick={() => setImportRows([])} className="text-xs text-zinc-600 hover:text-zinc-400">Annuler</button>
+                </div>
+                <div className="overflow-x-auto max-h-64 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-[#0e0e11]">
+                      <tr className="border-b border-[#1a1a1f]">
+                        {['Date', 'Titre', 'Début', 'Fin', 'Client', 'Statut'].map(h => (
+                          <th key={h} className="px-3 py-2 text-left text-zinc-600 font-medium">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.map((r, i) => (
+                        <tr key={i} className="border-b border-[#1a1a1f] last:border-b-0 hover:bg-[#111115]">
+                          <td className="px-3 py-2 text-zinc-400 font-mono">{r.date}</td>
+                          <td className="px-3 py-2 text-zinc-200 truncate max-w-[140px]">{r.title}</td>
+                          <td className="px-3 py-2 text-zinc-500 font-mono">{r.startTime}</td>
+                          <td className="px-3 py-2 text-zinc-500 font-mono">{r.endTime}</td>
+                          <td className="px-3 py-2 text-zinc-400 truncate max-w-[100px]">{r.clientName || '—'}</td>
+                          <td className="px-3 py-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              r.paymentStatus === 'paid' ? 'bg-emerald-500/15 text-emerald-400' :
+                              r.paymentStatus === 'pending' ? 'bg-amber-500/15 text-amber-400' :
+                              r.paymentStatus === 'unpaid' ? 'bg-red-500/15 text-red-400' :
+                              'bg-zinc-700/50 text-zinc-500'
+                            }`}>
+                              {r.paymentStatus === 'paid' ? 'Payé' : r.paymentStatus === 'pending' ? 'En attente' : r.paymentStatus === 'unpaid' ? 'Impayé' : 'Non travaillé'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-4 py-3 border-t border-[#1a1a1f]">
+                  <button
+                    onClick={handleImportConfirm}
+                    disabled={importing}
+                    className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    {importing ? 'Import en cours…' : `Confirmer l'import (${importRows.length} lignes)`}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
