@@ -51,14 +51,23 @@ export interface TaskItem extends CalendarItem {
   type: 'task'
   priority: Priority
   status: TaskStatus
-  progress?: number // 0 to 100
+  progress?: number
   description?: string
-  dependencies?: string[] // Array of task IDs
+  dependencies?: string[]
   color?: string
   icon?: string
   price?: number
-  startTime?: string // HH:mm
-  endTime?: string // HH:mm
+  startTime?: string
+  endTime?: string
+  taskKind?: 'standard' | 'deplacement' | 'evacuation'
+  clientId?: string
+  montantTache?: number
+  prixKm?: number
+  nbKm?: number
+  prixFixeDeplacement?: number
+  prixM3?: number
+  nbM3?: number
+  prixFixeEvacuation?: number
 }
 
 export interface Transaction {
