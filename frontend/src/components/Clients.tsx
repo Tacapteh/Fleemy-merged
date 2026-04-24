@@ -202,17 +202,18 @@ export function Clients() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
               transition={{ duration: 0.2 }}
               role="dialog"
               aria-modal="true"
-              className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6"
+              className="bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 max-h-[90vh] overflow-y-auto"
             >
+              <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4 sm:hidden" />
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-semibold text-white">
                   {editingId ? 'Modifier le client' : 'Nouveau client'}
