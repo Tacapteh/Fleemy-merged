@@ -72,15 +72,16 @@ service cloud.firestore {
 
     // ---- Teams ----
     match /teams/{teamId} {
-      allow get: if isAuth() && (
-        resource.data.owner_uid == request.auth.uid
-        || resource.data.ownerUid == request.auth.uid
-        || (resource.data.members is list && resource.data.members.hasAny([request.auth.uid]))
-        || (resource.data.members is map && resource.data.members.keys().hasAny([request.auth.uid]))
+      // Any authenticated user can read teams (IDs are not guessable)
+      allow get, list: if isAuth();
+      // Creator must set themselves as ownerId
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      // Owner has full control; any member can update the members array (to join)
+      allow update: if isAuth() && (
+        resource.data.ownerId == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
       );
-      allow list: if isAuth();
-      allow create: if isAuth() && request.resource.data.owner_uid == request.auth.uid;
-      allow update, delete: if isAuth() && resource.data.owner_uid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.ownerId == request.auth.uid;
 
       match /memberships/{uid} {
         allow read: if isAuth() && (request.auth.uid == uid || isTeamMember(teamId));
@@ -101,6 +102,13 @@ service cloud.firestore {
         allow read: if isTeamMember(teamId);
         allow write: if false;
       }
+    }
+
+    // ---- Historical events (imported planning) ----
+    match /historicalEvents/{docId} {
+      allow read: if ownsDoc();
+      allow create: if ownsNewDoc();
+      allow update, delete: if ownsDoc();
     }
 
     // ---- Daily todos ----

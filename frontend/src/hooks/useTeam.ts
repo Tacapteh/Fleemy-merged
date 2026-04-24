@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, arrayUnion, deleteField } from 'firebase/firestore'
 import { nanoid } from 'nanoid'
 import { db } from '../services/firebase'
 import { useAuth } from './useAuth'
@@ -83,7 +83,9 @@ export function useTeam() {
       }
       await updateDoc(doc(db, 'teams', teamDoc.id), { members: arrayUnion(member) })
       await setDoc(doc(db, 'users', user.uid), { teamId: teamDoc.id }, { merge: true })
-      setTeam({ id: teamDoc.id, ...teamDoc.data() } as Team)
+      // Reload to get fresh data including the newly added member
+      const freshDoc = await getDoc(doc(db, 'teams', teamDoc.id))
+      setTeam({ id: freshDoc.id, ...freshDoc.data() } as Team)
     } catch (err) {
       setError('Impossible de rejoindre l\'équipe.')
       console.error(err)
@@ -93,7 +95,7 @@ export function useTeam() {
   const leaveTeam = async () => {
     if (!user || !team) return
     try {
-      await setDoc(doc(db, 'users', user.uid), { teamId: null }, { merge: true })
+      await updateDoc(doc(db, 'users', user.uid), { teamId: deleteField() })
       setTeam(null)
     } catch (err) {
       console.error(err)
