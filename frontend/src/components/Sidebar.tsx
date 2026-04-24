@@ -10,6 +10,8 @@ import {
   LogOut,
   type LucideIcon,
 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { User } from 'firebase/auth'
 import { useAuth } from '../hooks/useAuth'
 
@@ -35,26 +37,37 @@ const navItems: { id: Tab; label: string; icon: LucideIcon }[] = [
 
 export function Sidebar({ activeTab, onTabChange, isOpen, onToggle, user }: SidebarProps) {
   const { logout } = useAuth()
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   return (
     <>
       {/* Mobile overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
-          onClick={onToggle}
-        />
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            key="sidebar-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+            onClick={onToggle}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Sidebar */}
-      <aside
-        className={`
-          fixed lg:static inset-y-0 left-0 z-30
-          w-64 bg-zinc-900 border-r border-zinc-800
-          flex flex-col
-          transform transition-transform duration-200 ease-in-out
-          ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
+      {/* Sidebar — always visible on lg+, slide in/out on mobile */}
+      <motion.aside
+        className="fixed lg:static inset-y-0 left-0 z-30 w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col"
+        initial={false}
+        animate={{ x: isDesktop ? 0 : (isOpen ? 0 : -256) }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       >
         {/* Logo */}
         <div className="p-6 flex items-center gap-2 border-b border-zinc-800">
@@ -111,7 +124,7 @@ export function Sidebar({ activeTab, onTabChange, isOpen, onToggle, user }: Side
             Déconnexion
           </button>
         </div>
-      </aside>
+      </motion.aside>
     </>
   )
 }
