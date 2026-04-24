@@ -469,7 +469,7 @@ interface MonthProps {
   onCreateEvent: (day: Date) => void
 }
 
-function MonthView({ days, refDate, tasks, events, clients, onEditTask, onEditEvent, onNavigateWeek, onNavigateDay, onCreateEvent }: MonthProps) {
+function MonthView({ days, refDate, tasks, events, onEditTask, onEditEvent, onNavigateWeek, onNavigateDay, onCreateEvent }: MonthProps) {
   const today = new Date()
   const DOW = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
   const [menuDay, setMenuDay] = useState<string | null>(null)
