@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
-import { Save, Clock, DollarSign, Mail, Users, Copy, LogIn, Check, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Save, Clock, DollarSign, Mail, Users, Copy, LogIn, Check, ChevronRight, Upload, Trash2 } from 'lucide-react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { useTeam } from '../hooks/useTeam'
+import { useHistoricalEvents } from '../hooks/useHistoricalEvents'
 import { useToast } from '../context/ToastContext'
+import { parseHistoricalPlanning, type ImportPreviewRow } from '../utils/importPlanning'
 import type { AppSettings } from '../types'
 
 const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
@@ -23,7 +25,7 @@ const DEFAULTS: AppSettings = {
   },
 }
 
-type Tab = 'general' | 'billing' | 'email' | 'team'
+type Tab = 'general' | 'billing' | 'email' | 'team' | 'import'
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
 function Toggle({ on, onChange, accent = 'emerald' }: { on: boolean; onChange: (v: boolean) => void; accent?: string }) {
@@ -78,6 +80,7 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
 export function Settings() {
   const { user } = useAuth()
   const { team, loading: tl, error: te, createTeam, joinTeam, leaveTeam } = useTeam()
+  const { historicalEvents, addHistoricalEvents, clearHistoricalEvents } = useHistoricalEvents()
   const { toast } = useToast()
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULTS)
@@ -87,6 +90,11 @@ export function Settings() {
   const [teamName, setTeamName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [teamMode, setTeamMode] = useState<'create' | 'join'>('create')
+
+  // Import state
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importRows, setImportRows] = useState<ImportPreviewRow[]>([])
+  const [importing, setImporting] = useState(false)
 
   // Load settings from Firestore (skipped in mock mode)
   useEffect(() => {
@@ -118,7 +126,46 @@ export function Settings() {
     { id: 'billing',  label: 'Facturation',icon: <DollarSign size={15} /> },
     { id: 'email',    label: 'Emails',     icon: <Mail size={15} /> },
     { id: 'team',     label: 'Équipe',     icon: <Users size={15} /> },
+    { id: 'import',   label: 'Import',     icon: <Upload size={15} /> },
   ]
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const rows = await parseHistoricalPlanning(file)
+      setImportRows(rows)
+      if (rows.length === 0) toast('Aucune ligne valide trouvée dans le fichier', 'error')
+    } catch {
+      toast('Erreur lors de la lecture du fichier', 'error')
+    }
+    e.target.value = ''
+  }
+
+  const handleImportConfirm = async () => {
+    if (importRows.length === 0) return
+    setImporting(true)
+    try {
+      const events = importRows.map(r => ({
+        type: 'event' as const,
+        title: r.title,
+        date: r.date,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        clientName: r.clientName || undefined,
+        paymentStatus: r.paymentStatus,
+        isBillable: r.isBillable,
+        overridePrice: r.overridePrice,
+      }))
+      await addHistoricalEvents(events)
+      toast(`${importRows.length} événement${importRows.length > 1 ? 's' : ''} importé${importRows.length > 1 ? 's' : ''}`)
+      setImportRows([])
+    } catch {
+      toast('Erreur lors de l\'import', 'error')
+    } finally {
+      setImporting(false)
+    }
+  }
 
   if (loading) {
     return (
