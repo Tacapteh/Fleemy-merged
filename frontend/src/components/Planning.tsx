@@ -128,10 +128,30 @@ interface FinancePanelProps {
 function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, historicalRevenue, historicalCount, tasks, clients, open, onToggle, viewMode }: FinancePanelProps) {
   const progress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0
   
+  // Filter tasks by view mode
+  const now = new Date()
+  const filteredTasks = useMemo(() => {
+    if (viewMode === 'day') return tasks.filter(t => t.date === format(now, 'yyyy-MM-dd'))
+    if (viewMode === 'week') {
+      const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+      const weekEnd = addDays(weekStart, 6)
+      return tasks.filter(t => {
+        const tDate = new Date(t.date)
+        return tDate >= weekStart && tDate <= weekEnd
+      })
+    }
+    const monthStart = startOfMonth(now)
+    const monthEnd = endOfMonth(now)
+    return tasks.filter(t => {
+      const tDate = new Date(t.date)
+      return tDate >= monthStart && tDate <= monthEnd
+    })
+  }, [viewMode, tasks])
+  
   // Group tasks by name and calculate totals
   const tasksByName = useMemo(() => {
     const grouped = new Map<string, { name: string; clientId?: string; clientName?: string; count: number; totalAmount: number; tasks: TaskItem[] }>()
-    tasks.forEach(t => {
+    filteredTasks.forEach(t => {
       if (t.montantTache !== undefined && t.montantTache !== 0) {
         const key = t.title
         const existing = grouped.get(key)
@@ -144,7 +164,7 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
       }
     })
     return Array.from(grouped.values()).sort((a, b) => b.totalAmount - a.totalAmount)
-  }, [tasks, clients])
+  }, [filteredTasks, clients])
   
   const rows = [
     { label: 'Encaissé',   value: stats.paid,    color: '#10b981' },
@@ -157,74 +177,80 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
       {/* Desktop: right side vertical panel */}
       <div
         className={`hidden lg:flex flex-col shrink-0 border-l border-[#1a1a1f] transition-all duration-300 overflow-hidden`}
-        style={{ width: open ? 280 : 40, background: '#0a0a0d' }}
+        style={{ width: open ? 340 : 40, background: 'linear-gradient(180deg, #0a0a0d 0%, #0e0e11 100%)' }}
       >
         <button
           onClick={onToggle}
-          className="w-full flex items-center justify-center h-10 hover:bg-[#1a1a1f] transition-colors shrink-0 border-b border-[#1a1a1f]"
+          className="w-full flex items-center justify-center h-12 hover:bg-[#1a1a1f] transition-colors shrink-0 border-b border-[#1a1a1f]"
           title={open ? 'Masquer le panneau' : 'Afficher les finances'}
         >
           {open
-            ? <ChevronRight size={14} className="text-zinc-600" />
-            : <ChevronLeft size={14} className="text-zinc-600" />}
+            ? <ChevronRight size={16} className="text-zinc-500" />
+            : <ChevronLeft size={16} className="text-zinc-500" />}
         </button>
         {open && (
-          <div className="p-3 space-y-3 overflow-y-auto flex-1">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Finances</p>
-              <span className="text-[9px] text-zinc-700 px-1.5 py-0.5 rounded-full bg-[#1a1a1f]">{viewMode === 'day' ? 'Jour' : viewMode === 'week' ? 'Semaine' : 'Mois'}</span>
-            </div>
-            {rows.map(({ label, value, color }) => (
-              <div key={label} className="flex items-center justify-between">
-                <span className="text-[10px] text-zinc-500">{label}</span>
-                <span className="text-[11px] font-semibold" style={{ color }}>
-                  {value.toLocaleString('fr-FR')} €
-                </span>
+          <div className="p-4 space-y-4 overflow-y-auto flex-1">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1a1a1f]">
+              <div>
+                <p className="text-xs font-bold text-zinc-100 uppercase tracking-widest">Finances</p>
+                <p className="text-[10px] text-zinc-600 mt-0.5">{viewMode === 'day' ? 'Jour' : viewMode === 'week' ? 'Semaine' : 'Mois'}</p>
               </div>
-            ))}
-            <div className="border-t border-[#1a1a1f] pt-2 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500">Total</span>
-              <span className="text-xs font-bold text-white">{stats.total.toLocaleString('fr-FR')} €</span>
-            </div>
-            <div className="border-t border-[#1a1a1f] pt-2">
-              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-2">Tâches</p>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] text-zinc-500">{tasksDone}/{tasksTotal}</span>
-                <span className="text-[10px] text-zinc-500">{Math.round(progress)}%</span>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-white">{stats.total.toLocaleString('fr-FR')}</p>
+                <p className="text-[10px] text-zinc-600">€</p>
               </div>
-              <div className="w-full h-1.5 rounded-full bg-[#1a1a1f] overflow-hidden">
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {rows.map(({ label, value, color }) => (
+                <div key={label} className="p-3 rounded-xl border text-center" style={{ background: color + '08', borderColor: color + '30' }}>
+                  <p className="text-xs font-bold" style={{ color }}>
+                    {(value / 1000).toFixed(1)}k
+                  </p>
+                  <p className="text-[8px] text-zinc-500 mt-1">{label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-[#1a1a1f] pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs font-bold text-zinc-100 uppercase tracking-widest">Tâches</p>
+                  <p className="text-[10px] text-zinc-600 mt-0.5">{tasksDone}/{tasksTotal}</p>
+                </div>
+                <span className="text-xs font-bold text-emerald-400">{Math.round(progress)}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-[#1a1a1f] overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-500"
                   style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
             {(taskRevenue > 0 || taskCosts < 0) && (
-              <div className="border-t border-[#1a1a1f] pt-2 space-y-1.5">
-                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-2">Revenus tâches</p>
+              <div className="border-t border-[#1a1a1f] pt-3 space-y-2.5">
+                <p className="text-xs font-bold text-zinc-100 uppercase tracking-widest">Revenus tâches</p>
                 {tasksByName.length > 0 ? (
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
                     {tasksByName.map((item, idx) => (
-                      <div key={idx} className="p-1.5 rounded-lg bg-[#1a1a1f]">
-                        <div className="flex items-start justify-between gap-1 mb-0.5">
+                      <div key={idx} className="p-3 rounded-xl border" style={{ background: '#1a1a1f', borderColor: '#252530' }}>
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
                           <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-semibold text-white truncate">{item.name}</p>
-                            {item.clientName && <p className="text-[8px] text-zinc-500 truncate">{item.clientName}</p>}
+                            <p className="text-xs font-bold text-white truncate">{item.name}</p>
+                            {item.clientName && <p className="text-[9px] text-zinc-500 truncate mt-0.5">{item.clientName}</p>}
                           </div>
-                          {item.count > 1 && <span className="text-[9px] text-zinc-600 px-1 py-0.5 rounded bg-[#0a0a0d]">x{item.count}</span>}
+                          {item.count > 1 && <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-[#0a0a0d] shrink-0">x{item.count}</span>}
                         </div>
-                        <p className={`text-[10px] font-bold ${item.totalAmount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <p className={`text-xs font-bold ${item.totalAmount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           {item.totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                         </p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-[9px] text-zinc-600">Aucune tâche facturée</p>
+                  <p className="text-[9px] text-zinc-600 italic">Aucune tâche facturée</p>
                 )}
-                <div className="flex items-center justify-between border-t border-[#1a1a1f] pt-1.5 mt-1.5">
-                  <span className="text-[10px] text-zinc-500">Net</span>
-                  <span className={`text-[11px] font-bold ${(taskRevenue + taskCosts) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <div className="flex items-center justify-between border-t border-[#1a1a1f] pt-2.5">
+                  <span className="text-xs text-zinc-500">Net</span>
+                  <span className={`text-sm font-bold ${(taskRevenue + taskCosts) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {(taskRevenue + taskCosts).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                   </span>
                 </div>
@@ -232,13 +258,13 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
             )}
 
             {historicalCount > 0 && (
-              <div className="border-t border-[#1a1a1f] pt-2 space-y-1.5">
-                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-1">Historique importé</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-zinc-500">{historicalCount} événement{historicalCount > 1 ? 's' : ''}</span>
-                  <span className="text-[11px] font-semibold text-violet-400">
+              <div className="border-t border-[#1a1a1f] pt-3 space-y-2">
+                <p className="text-xs font-bold text-zinc-100 uppercase tracking-widest">Historique</p>
+                <div className="p-3 rounded-xl border" style={{ background: '#1a1a1f', borderColor: '#252530' }}>
+                  <p className="text-[9px] text-zinc-500 mb-1">{historicalCount} événement{historicalCount > 1 ? 's' : ''}</p>
+                  <p className="text-sm font-bold text-violet-400">
                     {historicalRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                  </span>
+                  </p>
                 </div>
               </div>
             )}
@@ -388,10 +414,10 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
             const dayRev = dayEvents.reduce((sum, ev) => sum + eventRevenue(ev, clients), 0)
             return (
               <div key={i} className={`flex flex-col items-center justify-center py-2 border-r border-[#1a1a1f] last:border-r-0 ${isToday(day) ? 'bg-emerald-500/5' : ''}`}>
-                <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
+                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-widest" style={{ fontFamily: "'Geist', 'Inter', sans-serif" }}>
                   {format(day, 'EEE', { locale: fr })}
                 </span>
-                <span className={`text-base font-bold mt-0.5 w-8 h-8 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-emerald-500 text-white' : 'text-zinc-300'}`}>
+                <span className={`text-xl font-bold mt-1 w-10 h-10 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-emerald-500 text-white' : 'text-zinc-100'}`} style={{ fontFamily: "'Geist', 'Inter', sans-serif", fontWeight: 700 }}>
                   {format(day, 'd')}
                 </span>
                 {dayRev > 0 && (
@@ -503,10 +529,10 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
                   return (
                     <div key={task.id} draggable={!done}
                       onDragStart={e => { e.stopPropagation(); if (!done) onDragStart(e, task) }}
-                      onClick={e => { e.stopPropagation(); if (!done) onEditTask(task) }}
-                      onMouseEnter={e => { if (!done) onShowTooltip(task, 'task', e.clientX, e.clientY) }}
+                      onClick={e => { e.stopPropagation(); onEditTask(task) }}
+                      onMouseEnter={e => onShowTooltip(task, 'task', e.clientX, e.clientY)}
                       onMouseLeave={onHideTooltip}
-                      className={`absolute left-1 right-1 rounded-xl overflow-hidden select-none z-10 group flex transition-transform duration-150 ${done ? 'opacity-40' : 'cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:z-20'}`}
+                      className={`absolute left-1 right-1 rounded-xl overflow-hidden select-none z-0 group flex transition-transform duration-150 ${done ? 'opacity-40 pointer-events-auto cursor-default' : 'cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:z-20'}`}
                       style={{ top: top + 1, height: h - 2, background: taskColor + '12', borderLeft: `3px solid ${taskColor}` }}
                     >
                       {/* Icon strip */}
