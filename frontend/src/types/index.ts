@@ -35,6 +35,7 @@ export interface EventItem extends CalendarItem {
   endTime: string // HH:mm
   isBillable: boolean
   overridePrice?: number
+  hourlyRate?: number // overrides client rate when set
 }
 
 export interface RecurringTaskTemplate {

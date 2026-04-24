@@ -63,7 +63,7 @@ export function Clients() {
   }, [showModal])
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.email.trim()) return
+    if (!form.name.trim()) return
     if (editingId) {
       await updateClient(editingId, form)
       toast('Client mis à jour')

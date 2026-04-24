@@ -134,17 +134,18 @@ export function Documents() {
   const handleSave = async () => {
     if (!form.clientId || form.items.length === 0) return
     const client = clients.find(c => c.id === form.clientId)
-    await addDocument({
+    const docData: Parameters<typeof addDocument>[0] = {
       type: form.type,
       clientId: form.clientId,
       clientName: client?.name ?? '',
       items: form.items,
       status: 'draft',
       date: form.date,
-      dueDate: form.dueDate || undefined,
-      notes: form.notes || undefined,
       totalAmount,
-    })
+    }
+    if (form.dueDate) docData.dueDate = form.dueDate
+    if (form.notes) docData.notes = form.notes
+    await addDocument(docData)
     toast('Document créé')
     setShowModal(false)
     setForm({ type: 'invoice', clientId: '', date: new Date().toISOString().split('T')[0], dueDate: '', notes: '', items: [{ ...EMPTY_ITEM }] })

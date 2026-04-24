@@ -85,9 +85,14 @@ function calcFinance(events: EventItem[], clients: Client[]) {
   let paid = 0, pending = 0, unpaid = 0
   events.forEach(ev => {
     if (!ev.isBillable) return
-    const client = clients.find(c => c.id === ev.clientId)
-    const durationH = (toMin(ev.endTime ?? '10:00') - toMin(ev.startTime ?? '09:00')) / 60
-    const amount = ev.overridePrice ?? (client?.hourlyRate ? durationH * client.hourlyRate : 0)
+    let amount: number
+    if (ev.overridePrice !== undefined) { amount = ev.overridePrice }
+    else {
+      const client = clients.find(c => c.id === ev.clientId)
+      const rate = ev.hourlyRate ?? client?.hourlyRate ?? 0
+      const durationH = (toMin(ev.endTime ?? '10:00') - toMin(ev.startTime ?? '09:00')) / 60
+      amount = rate ? durationH * rate : 0
+    }
     if (ev.paymentStatus === 'paid') paid += amount
     else if (ev.paymentStatus === 'pending') pending += amount
     else if (ev.paymentStatus === 'unpaid') unpaid += amount
@@ -97,9 +102,11 @@ function calcFinance(events: EventItem[], clients: Client[]) {
 
 function eventRevenue(ev: EventItem, clients: Client[]) {
   if (!ev.isBillable) return 0
+  if (ev.overridePrice !== undefined) return ev.overridePrice
   const client = clients.find(c => c.id === ev.clientId)
+  const rate = ev.hourlyRate ?? client?.hourlyRate ?? 0
   const durationH = (toMin(ev.endTime ?? '10:00') - toMin(ev.startTime ?? '09:00')) / 60
-  return ev.overridePrice ?? (client?.hourlyRate ? durationH * client.hourlyRate : 0)
+  return rate ? durationH * rate : 0
 }
 
 // ─── Finance Panel ────────────────────────────────────────────────────────────
@@ -247,8 +254,8 @@ function PlanningTooltip({ tooltip, clients }: { tooltip: TooltipState; clients:
   if (tooltip.kind === 'event') {
     const ev = tooltip.data as EventItem
     const client = clients.find(c => c.id === ev.clientId)
-    const durationH = (toMin(ev.endTime ?? '10:00') - toMin(ev.startTime ?? '09:00')) / 60
-    const amount = ev.overridePrice ?? (client?.hourlyRate ? durationH * client.hourlyRate : null)
+    const rev = eventRevenue(ev, clients)
+    const amount = ev.isBillable && rev > 0 ? rev : null
     const ps = PAYMENT_STYLE[ev.paymentStatus] ?? PAYMENT_STYLE['not-worked']
 
     return (
@@ -700,6 +707,8 @@ export function Planning() {
     startTime: '09:00', endTime: '10:00',
     clientId: '', isBillable: true,
     paymentStatus: 'unpaid' as EventItem['paymentStatus'],
+    useCustomRate: false,
+    hourlyRate: '' as number | '',
   })
 
   const resetTForm = () => setTForm({
@@ -710,7 +719,7 @@ export function Planning() {
     prixM3: '', nbM3: '', prixFixeEvacuation: '',
     deplacementMode: 'km', evacuationMode: 'volume',
   })
-  const resetEForm = () => setEForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid' })
+  const resetEForm = () => setEForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid', useCustomRate: false, hourlyRate: '' })
 
   const days = useMemo(() => {
     if (view === 'day') return [current]
@@ -759,7 +768,14 @@ export function Planning() {
 
   const openEditEvent = (ev: EventItem) => {
     setEditingId(ev.id); setMType('event')
-    setEForm({ title: ev.title, date: ev.date, startTime: ev.startTime ?? '09:00', endTime: ev.endTime ?? '10:00', clientId: ev.clientId ?? '', isBillable: ev.isBillable ?? true, paymentStatus: ev.paymentStatus })
+    setEForm({
+      title: ev.title, date: ev.date,
+      startTime: ev.startTime ?? '09:00', endTime: ev.endTime ?? '10:00',
+      clientId: ev.clientId ?? '', isBillable: ev.isBillable ?? true,
+      paymentStatus: ev.paymentStatus,
+      useCustomRate: ev.hourlyRate !== undefined,
+      hourlyRate: ev.hourlyRate ?? '',
+    })
     setModal(true)
   }
 
@@ -831,12 +847,20 @@ export function Planning() {
 
   const saveEvent = async () => {
     if (!eForm.title.trim()) { setTitleError(true); setTimeout(() => setTitleError(false), 600); return }
-    if (editingId) { await updateEvent(editingId, eForm); toast('Créneau modifié') }
-    else {
-      const client = clients.find(c => c.id === eForm.clientId)
-      const extra = client?.name ? { clientName: client.name } : {}
-      await addEvent({ ...eForm, type: 'event', ...extra } as Omit<EventItem, 'id'>); toast('Créneau créé')
+    const base: Record<string, unknown> = {
+      type: 'event',
+      title: eForm.title, date: eForm.date,
+      startTime: eForm.startTime, endTime: eForm.endTime,
+      isBillable: eForm.isBillable, paymentStatus: eForm.paymentStatus,
     }
+    if (eForm.clientId) {
+      base.clientId = eForm.clientId
+      const client = clients.find(c => c.id === eForm.clientId)
+      if (client?.name) base.clientName = client.name
+    }
+    if (eForm.useCustomRate && eForm.hourlyRate !== '') base.hourlyRate = Number(eForm.hourlyRate)
+    if (editingId) { await updateEvent(editingId, base as Partial<EventItem>); toast('Créneau modifié') }
+    else { await addEvent(base as Omit<EventItem, 'id'>); toast('Créneau créé') }
     closeModal(); resetEForm()
   }
 
@@ -850,7 +874,8 @@ export function Planning() {
     e.preventDefault()
     const info = dragRef.current; if (!info) return
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const newStart = Math.max(DAY_START * 60, pxToMin(e.clientY - rect.top) - info.offsetMin)
+    // Snap to full hour — ignore grab offset so position is always clean
+    const newStart = pxToMin(e.clientY - rect.top)
     const newEnd = Math.min(DAY_END * 60, newStart + info.durationMin)
     const upd = { date: format(day, 'yyyy-MM-dd'), startTime: toTimeStr(newStart), endTime: toTimeStr(newEnd) }
     if (info.kind === 'task') updateTask(info.id, upd); else updateEvent(info.id, upd)
@@ -1232,6 +1257,33 @@ export function Planning() {
                     </button>
                     <span className="text-sm text-zinc-300">Facturable</span>
                   </label>
+
+                  {eForm.isBillable && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-500">Taux horaire</span>
+                        <div className="flex bg-[#0a0a0d] rounded-lg p-0.5 border border-[#1e1e24]">
+                          <button onClick={() => setEForm(f => ({ ...f, useCustomRate: false, hourlyRate: '' }))}
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${!eForm.useCustomRate ? 'bg-[#1e1e24] text-white' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                            Client
+                          </button>
+                          <button onClick={() => setEForm(f => ({ ...f, useCustomRate: true }))}
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${eForm.useCustomRate ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                            Personnalisé
+                          </button>
+                        </div>
+                      </div>
+                      {eForm.useCustomRate && (
+                        <div className="flex items-center gap-2">
+                          <input type="number" min={0} step={0.5} placeholder="0"
+                            className="flex-1 bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all"
+                            value={eForm.hourlyRate}
+                            onChange={e => setEForm(f => ({ ...f, hourlyRate: e.target.value === '' ? '' : Number(e.target.value) }))} />
+                          <span className="text-xs text-zinc-600 shrink-0">€/h</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <button onClick={saveEvent}
                     className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors shadow-[0_2px_12px_rgba(99,102,241,0.25)]">
