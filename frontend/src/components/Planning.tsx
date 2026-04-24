@@ -623,6 +623,17 @@ export function Planning() {
     priority: 2 as 1 | 2 | 3,
     status: 'todo' as TaskItem['status'],
     description: '', icon: '', color: '',
+    taskKind: 'standard' as 'standard' | 'deplacement' | 'evacuation',
+    clientId: '',
+    montantTache: '' as number | '',
+    prixKm: '' as number | '',
+    nbKm: '' as number | '',
+    prixFixeDeplacement: '' as number | '',
+    prixM3: '' as number | '',
+    nbM3: '' as number | '',
+    prixFixeEvacuation: '' as number | '',
+    deplacementMode: 'km' as 'km' | 'fixe',
+    evacuationMode: 'volume' as 'volume' | 'fixe',
   })
   const [eForm, setEForm] = useState({
     title: '', date: format(new Date(), 'yyyy-MM-dd'),
@@ -631,7 +642,14 @@ export function Planning() {
     paymentStatus: 'unpaid' as EventItem['paymentStatus'],
   })
 
-  const resetTForm = () => setTForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', priority: 2, status: 'todo', description: '', icon: '', color: '' })
+  const resetTForm = () => setTForm({
+    title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00',
+    priority: 2, status: 'todo', description: '', icon: '', color: '',
+    taskKind: 'standard', clientId: '', montantTache: '',
+    prixKm: '', nbKm: '', prixFixeDeplacement: '',
+    prixM3: '', nbM3: '', prixFixeEvacuation: '',
+    deplacementMode: 'km', evacuationMode: 'volume',
+  })
   const resetEForm = () => setEForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid' })
 
   const days = useMemo(() => {
@@ -659,7 +677,23 @@ export function Planning() {
 
   const openEditTask = (task: TaskItem) => {
     setEditingId(task.id); setMType('task')
-    setTForm({ title: task.title, date: task.date, startTime: task.startTime ?? '09:00', endTime: task.endTime ?? '10:00', priority: (task.priority ?? 2) as 1 | 2 | 3, status: task.status, description: task.description ?? '', icon: task.icon ?? '', color: task.color ?? '' })
+    setTForm({
+      title: task.title, date: task.date,
+      startTime: task.startTime ?? '09:00', endTime: task.endTime ?? '10:00',
+      priority: (task.priority ?? 2) as 1 | 2 | 3, status: task.status,
+      description: task.description ?? '', icon: task.icon ?? '', color: task.color ?? '',
+      taskKind: task.taskKind ?? 'standard',
+      clientId: task.clientId ?? '',
+      montantTache: task.montantTache ?? '',
+      prixKm: task.prixKm ?? '',
+      nbKm: task.nbKm ?? '',
+      prixFixeDeplacement: task.prixFixeDeplacement ?? '',
+      prixM3: task.prixM3 ?? '',
+      nbM3: task.nbM3 ?? '',
+      prixFixeEvacuation: task.prixFixeEvacuation ?? '',
+      deplacementMode: task.prixFixeDeplacement !== undefined ? 'fixe' : 'km',
+      evacuationMode: task.prixFixeEvacuation !== undefined ? 'fixe' : 'volume',
+    })
     setModal(true)
   }
 
@@ -678,11 +712,57 @@ export function Planning() {
     return () => window.removeEventListener('keydown', handler)
   }, [modal])
 
+  const calcMontantTache = (): number | undefined => {
+    const kind = tForm.taskKind
+    if (kind === 'deplacement') {
+      if (tForm.deplacementMode === 'km') {
+        const p = Number(tForm.prixKm), k = Number(tForm.nbKm)
+        return (tForm.prixKm === '' || tForm.nbKm === '') ? undefined : p * k
+      }
+      return tForm.prixFixeDeplacement === '' ? undefined : Number(tForm.prixFixeDeplacement)
+    }
+    if (kind === 'evacuation') {
+      if (tForm.evacuationMode === 'volume') {
+        const p = Number(tForm.prixM3), v = Number(tForm.nbM3)
+        return (tForm.prixM3 === '' || tForm.nbM3 === '') ? undefined : p * v
+      }
+      return tForm.prixFixeEvacuation === '' ? undefined : Number(tForm.prixFixeEvacuation)
+    }
+    return tForm.montantTache === '' ? undefined : Number(tForm.montantTache)
+  }
+
   const saveTask = async () => {
     if (!tForm.title.trim()) { setTitleError(true); setTimeout(() => setTitleError(false), 600); return }
-    const data = { ...tForm, ...(tForm.icon ? {} : { icon: undefined }), ...(tForm.color ? {} : { color: undefined }) }
+    const montantTache = calcMontantTache()
+    const data: Omit<TaskItem, 'id'> = {
+      type: 'task',
+      title: tForm.title, date: tForm.date,
+      startTime: tForm.startTime, endTime: tForm.endTime,
+      priority: tForm.priority, status: tForm.status,
+      description: tForm.description || undefined,
+      icon: tForm.icon || undefined,
+      color: tForm.color || undefined,
+      progress: 0,
+      taskKind: tForm.taskKind,
+      clientId: tForm.clientId || undefined,
+      montantTache,
+      ...(tForm.taskKind === 'deplacement' && tForm.deplacementMode === 'km' ? {
+        prixKm: tForm.prixKm !== '' ? Number(tForm.prixKm) : undefined,
+        nbKm: tForm.nbKm !== '' ? Number(tForm.nbKm) : undefined,
+      } : {}),
+      ...(tForm.taskKind === 'deplacement' && tForm.deplacementMode === 'fixe' ? {
+        prixFixeDeplacement: tForm.prixFixeDeplacement !== '' ? Number(tForm.prixFixeDeplacement) : undefined,
+      } : {}),
+      ...(tForm.taskKind === 'evacuation' && tForm.evacuationMode === 'volume' ? {
+        prixM3: tForm.prixM3 !== '' ? Number(tForm.prixM3) : undefined,
+        nbM3: tForm.nbM3 !== '' ? Number(tForm.nbM3) : undefined,
+      } : {}),
+      ...(tForm.taskKind === 'evacuation' && tForm.evacuationMode === 'fixe' ? {
+        prixFixeEvacuation: tForm.prixFixeEvacuation !== '' ? Number(tForm.prixFixeEvacuation) : undefined,
+      } : {}),
+    }
     if (editingId) { await updateTask(editingId, data); toast('Tâche modifiée') }
-    else { await addTask({ ...data, type: 'task', progress: 0, tags: [] } as Omit<TaskItem, 'id'>); toast('Tâche créée') }
+    else { await addTask(data); toast('Tâche créée') }
     closeModal(); resetTForm()
   }
 
@@ -910,6 +990,113 @@ export function Planning() {
                   <textarea rows={2} placeholder="Description (optionnel)"
                     className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all resize-none"
                     value={tForm.description} onChange={e => setTForm(f => ({ ...f, description: e.target.value }))} />
+
+                  {/* Task kind */}
+                  <div>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1.5">Type de tâche</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([
+                        { v: 'standard', label: 'Standard', emoji: '📋' },
+                        { v: 'deplacement', label: 'Déplacement', emoji: '🚗' },
+                        { v: 'evacuation', label: 'Évacuation', emoji: '🗑️' },
+                      ] as const).map(({ v, label, emoji }) => (
+                        <button key={v} type="button"
+                          onClick={() => setTForm(f => ({ ...f, taskKind: v }))}
+                          className={`py-2 rounded-xl text-xs font-medium border transition-all ${tForm.taskKind === v ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300' : 'border-[#1e1e24] text-zinc-600 hover:text-zinc-400'}`}>
+                          {emoji} {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Déplacement sub-fields */}
+                  {tForm.taskKind === 'deplacement' && (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        {(['km', 'fixe'] as const).map(m => (
+                          <button key={m} type="button"
+                            onClick={() => setTForm(f => ({ ...f, deplacementMode: m }))}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${tForm.deplacementMode === m ? 'bg-zinc-700 border-zinc-600 text-white' : 'border-[#1e1e24] text-zinc-600 hover:text-zinc-400'}`}>
+                            {m === 'km' ? 'Par km' : 'Prix fixe'}
+                          </button>
+                        ))}
+                      </div>
+                      {tForm.deplacementMode === 'km' ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="number" step="0.01" placeholder="Prix/km (€)"
+                            className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all"
+                            value={tForm.prixKm}
+                            onChange={e => setTForm(f => ({ ...f, prixKm: e.target.value === '' ? '' : Number(e.target.value) }))} />
+                          <input type="number" step="0.1" placeholder="Nb de km"
+                            className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all"
+                            value={tForm.nbKm}
+                            onChange={e => setTForm(f => ({ ...f, nbKm: e.target.value === '' ? '' : Number(e.target.value) }))} />
+                        </div>
+                      ) : (
+                        <input type="number" step="0.01" placeholder="Montant fixe (€, négatif = coût)"
+                          className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all"
+                          value={tForm.prixFixeDeplacement}
+                          onChange={e => setTForm(f => ({ ...f, prixFixeDeplacement: e.target.value === '' ? '' : Number(e.target.value) }))} />
+                      )}
+                      {calcMontantTache() !== undefined && (
+                        <p className={`text-xs font-bold ${(calcMontantTache() ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          = {(calcMontantTache() ?? 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Évacuation sub-fields */}
+                  {tForm.taskKind === 'evacuation' && (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        {(['volume', 'fixe'] as const).map(m => (
+                          <button key={m} type="button"
+                            onClick={() => setTForm(f => ({ ...f, evacuationMode: m }))}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${tForm.evacuationMode === m ? 'bg-zinc-700 border-zinc-600 text-white' : 'border-[#1e1e24] text-zinc-600 hover:text-zinc-400'}`}>
+                            {m === 'volume' ? 'Par m³' : 'Prix fixe'}
+                          </button>
+                        ))}
+                      </div>
+                      {tForm.evacuationMode === 'volume' ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="number" step="0.01" placeholder="Prix/m³ (€)"
+                            className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all"
+                            value={tForm.prixM3}
+                            onChange={e => setTForm(f => ({ ...f, prixM3: e.target.value === '' ? '' : Number(e.target.value) }))} />
+                          <input type="number" step="0.1" placeholder="Volume (m³)"
+                            className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all"
+                            value={tForm.nbM3}
+                            onChange={e => setTForm(f => ({ ...f, nbM3: e.target.value === '' ? '' : Number(e.target.value) }))} />
+                        </div>
+                      ) : (
+                        <input type="number" step="0.01" placeholder="Montant fixe (€, négatif = coût)"
+                          className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all"
+                          value={tForm.prixFixeEvacuation}
+                          onChange={e => setTForm(f => ({ ...f, prixFixeEvacuation: e.target.value === '' ? '' : Number(e.target.value) }))} />
+                      )}
+                      {calcMontantTache() !== undefined && (
+                        <p className={`text-xs font-bold ${(calcMontantTache() ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          = {(calcMontantTache() ?? 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Standard: montant libre */}
+                  {tForm.taskKind === 'standard' && (
+                    <input type="number" step="0.01" placeholder="Montant (€, optionnel, négatif = coût)"
+                      className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all"
+                      value={tForm.montantTache}
+                      onChange={e => setTForm(f => ({ ...f, montantTache: e.target.value === '' ? '' : Number(e.target.value) }))} />
+                  )}
+
+                  {/* Client associé */}
+                  <select className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-all"
+                    value={tForm.clientId} onChange={e => setTForm(f => ({ ...f, clientId: e.target.value }))}>
+                    <option value="">Aucun client</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
 
                   <button onClick={saveTask}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
