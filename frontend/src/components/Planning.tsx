@@ -148,6 +148,19 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
     })
   }, [viewMode, tasks])
   
+  // Filter stats by view mode
+  const filteredStats = useMemo(() => {
+    let paid = 0, pending = 0, unpaid = 0
+    filteredTasks.forEach(t => {
+      if (t.montantTache !== undefined && t.montantTache > 0) {
+        if (t.paymentStatus === 'paid') paid += t.montantTache
+        else if (t.paymentStatus === 'pending') pending += t.montantTache
+        else if (t.paymentStatus === 'unpaid') unpaid += t.montantTache
+      }
+    })
+    return { paid, pending, unpaid, total: paid + pending + unpaid }
+  }, [filteredTasks])
+  
   // Group tasks by name and calculate totals
   const tasksByName = useMemo(() => {
     const grouped = new Map<string, { name: string; clientId?: string; clientName?: string; count: number; totalAmount: number; tasks: TaskItem[] }>()
@@ -201,14 +214,17 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {rows.map(({ label, value, color }) => (
-                <div key={label} className="p-3 rounded-xl border text-center" style={{ background: color + '08', borderColor: color + '30' }}>
-                  <p className="text-xs font-bold" style={{ color }}>
-                    {(value / 1000).toFixed(1)}k
-                  </p>
-                  <p className="text-[8px] text-zinc-500 mt-1">{label}</p>
-                </div>
-              ))}
+              {rows.map(({ label, value, color }) => {
+                const filteredValue = filteredStats[label.toLowerCase() === 'encaissé' ? 'paid' : label.toLowerCase() === 'en attente' ? 'pending' : 'unpaid']
+                return (
+                  <div key={label} className="p-3 rounded-xl border text-center flex flex-col items-center justify-center" style={{ background: color + '08', borderColor: color + '30' }}>
+                    <p className="text-xs font-bold" style={{ color }}>
+                      {(filteredValue / 1000).toFixed(1)}k
+                    </p>
+                    <p className="text-[8px] text-zinc-500 mt-1">{label}</p>
+                  </div>
+                )
+              })}
             </div>
             <div className="border-t border-[#1a1a1f] pt-3">
               <div className="flex items-center justify-between mb-2">
@@ -231,13 +247,11 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
                 {tasksByName.length > 0 ? (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {tasksByName.map((item, idx) => (
-                      <div key={idx} className="p-3 rounded-xl border" style={{ background: '#1a1a1f', borderColor: '#252530' }}>
-                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-white truncate">{item.name}</p>
-                            {item.clientName && <p className="text-[9px] text-zinc-500 truncate mt-0.5">{item.clientName}</p>}
-                          </div>
-                          {item.count > 1 && <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-[#0a0a0d] shrink-0">x{item.count}</span>}
+                      <div key={idx} className="p-3 rounded-xl border text-center" style={{ background: '#1a1a1f', borderColor: '#252530' }}>
+                        <div className="flex flex-col items-center justify-center gap-1 mb-1.5">
+                          <p className="text-xs font-bold text-white truncate w-full">{item.name}</p>
+                          {item.clientName && <p className="text-[9px] text-zinc-500 truncate w-full">{item.clientName}</p>}
+                          {item.count > 1 && <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-[#0a0a0d]">x{item.count}</span>}
                         </div>
                         <p className={`text-xs font-bold ${item.totalAmount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           {item.totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
@@ -260,7 +274,7 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
             {historicalCount > 0 && (
               <div className="border-t border-[#1a1a1f] pt-3 space-y-2">
                 <p className="text-xs font-bold text-zinc-100 uppercase tracking-widest">Historique</p>
-                <div className="p-3 rounded-xl border" style={{ background: '#1a1a1f', borderColor: '#252530' }}>
+                <div className="p-3 rounded-xl border text-center" style={{ background: '#1a1a1f', borderColor: '#252530' }}>
                   <p className="text-[9px] text-zinc-500 mb-1">{historicalCount} événement{historicalCount > 1 ? 's' : ''}</p>
                   <p className="text-sm font-bold text-violet-400">
                     {historicalRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
@@ -890,6 +904,21 @@ export function Planning() {
 
   const saveTask = async () => {
     if (!tForm.title.trim()) { setTitleError(true); setTimeout(() => setTitleError(false), 600); return }
+    
+    // Check for time overlaps with existing tasks
+    const ds = tForm.date
+    const newRange = { s: toMin(tForm.startTime), e: toMin(tForm.endTime) }
+    const dayTasks = tasks.filter(t => t.date === ds && t.id !== editingId)
+    const hasOverlap = dayTasks.some(task => {
+      const taskRange = { s: toMin(task.startTime ?? '09:00'), e: toMin(task.endTime ?? '10:00') }
+      return overlaps(newRange, taskRange)
+    })
+    
+    if (hasOverlap) {
+      toast('Chevauchement de tâche détecté')
+      return
+    }
+    
     const montantTache = calcMontantTache()
     // Build object without any undefined values — Firestore rejects them
     const data: Record<string, unknown> = {
@@ -928,6 +957,21 @@ export function Planning() {
 
   const saveEvent = async () => {
     if (!eForm.title.trim()) { setTitleError(true); setTimeout(() => setTitleError(false), 600); return }
+    
+    // Check for time overlaps with existing events
+    const ds = eForm.date
+    const newRange = { s: toMin(eForm.startTime), e: toMin(eForm.endTime) }
+    const dayEvents = events.filter(e => e.date === ds && e.id !== editingId)
+    const hasOverlap = dayEvents.some(ev => {
+      const evRange = { s: toMin(ev.startTime ?? '09:00'), e: toMin(ev.endTime ?? '10:00') }
+      return overlaps(newRange, evRange)
+    })
+    
+    if (hasOverlap) {
+      toast('Chevauchement de créneau détecté')
+      return
+    }
+    
     const base: Record<string, unknown> = {
       type: 'event',
       title: eForm.title, date: eForm.date,
@@ -958,10 +1002,26 @@ export function Planning() {
     // Snap to full hour — ignore grab offset so position is always clean
     const newStart = pxToMin(e.clientY - rect.top)
     const newEnd = Math.min(DAY_END * 60, newStart + info.durationMin)
-    const upd = { date: format(day, 'yyyy-MM-dd'), startTime: toTimeStr(newStart), endTime: toTimeStr(newEnd) }
+    const ds = format(day, 'yyyy-MM-dd')
+    const newRange = { s: newStart, e: newEnd }
+    
+    // Check for overlaps with same type
+    const itemsOnDay = info.kind === 'task' ? tasks.filter(t => t.date === ds) : events.filter(e => e.date === ds)
+    const hasOverlap = itemsOnDay.filter(item => item.id !== info.id).some(item => {
+      const itemRange = { s: toMin(item.startTime ?? '09:00'), e: toMin(item.endTime ?? '10:00') }
+      return overlaps(newRange, itemRange)
+    })
+    
+    if (hasOverlap) {
+      toast('Chevauchement détecté')
+      dragRef.current = null
+      return
+    }
+    
+    const upd = { date: ds, startTime: toTimeStr(newStart), endTime: toTimeStr(newEnd) }
     if (info.kind === 'task') updateTask(info.id, upd); else updateEvent(info.id, upd)
     dragRef.current = null; toast('Déplacé')
-  }, [updateTask, updateEvent, toast])
+  }, [updateTask, updateEvent, toast, tasks, events])
 
   const now = new Date()
   const nowMin = now.getHours() * 60 + now.getMinutes()
@@ -1288,6 +1348,26 @@ export function Planning() {
                     <option value="">Aucun client</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
+
+                  {/* Status */}
+                  <div>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1.5">Statut</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(['todo', 'done'] as const).map(s => {
+                        const active = tForm.status === s
+                        const cls = s === 'done'
+                          ? ['Complétée', active ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'border-[#1e1e24] text-zinc-700 hover:text-zinc-500']
+                          : ['À faire', active ? 'bg-zinc-600 border-zinc-500 text-white' : 'border-[#1e1e24] text-zinc-700 hover:text-zinc-500']
+                        return (
+                          <button key={s} type="button"
+                            onClick={() => setTForm(f => ({ ...f, status: s }))}
+                            className={`py-2 rounded-lg text-xs font-medium border transition-all ${cls[1]}`}>
+                            {cls[0]}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
 
                   <button onClick={saveTask}
                     className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
