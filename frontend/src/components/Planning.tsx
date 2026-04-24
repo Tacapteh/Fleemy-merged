@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef, useCallback } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, ChevronLeft, ChevronRight, X, Check,
   AlertCircle, AlertTriangle, CheckCircle2,
@@ -16,7 +17,7 @@ import {
   eachDayOfInterval, isSameDay, isSameMonth,
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import type { TaskItem, EventItem } from '../types'
+import type { TaskItem, EventItem, Client } from '../types'
 
 type ViewMode = 'day' | 'week' | 'month'
 
@@ -73,11 +74,181 @@ const PAYMENT_STYLE: Record<string, { border: string; bg: string; title: string;
 // ─── Drag state ──────────────────────────────────────────────────────────────
 interface DragInfo { id: string; kind: 'task' | 'event'; offsetMin: number; durationMin: number }
 
+// ─── Tooltip state ───────────────────────────────────────────────────────────
+interface TooltipState {
+  id: string; kind: 'task' | 'event'; x: number; y: number; data: TaskItem | EventItem
+}
+
+// ─── Finance helpers ─────────────────────────────────────────────────────────
+function calcFinance(events: EventItem[], clients: Client[]) {
+  let paid = 0, pending = 0, unpaid = 0
+  events.forEach(ev => {
+    if (!ev.isBillable) return
+    const client = clients.find(c => c.id === ev.clientId)
+    const durationH = (toMin(ev.endTime ?? '10:00') - toMin(ev.startTime ?? '09:00')) / 60
+    const amount = ev.overridePrice ?? (client?.hourlyRate ? durationH * client.hourlyRate : 0)
+    if (ev.paymentStatus === 'paid') paid += amount
+    else if (ev.paymentStatus === 'pending') pending += amount
+    else if (ev.paymentStatus === 'unpaid') unpaid += amount
+  })
+  return { paid, pending, unpaid, total: paid + pending + unpaid }
+}
+
+function eventRevenue(ev: EventItem, clients: Client[]) {
+  if (!ev.isBillable) return 0
+  const client = clients.find(c => c.id === ev.clientId)
+  const durationH = (toMin(ev.endTime ?? '10:00') - toMin(ev.startTime ?? '09:00')) / 60
+  return ev.overridePrice ?? (client?.hourlyRate ? durationH * client.hourlyRate : 0)
+}
+
+// ─── Finance Panel ────────────────────────────────────────────────────────────
+interface FinancePanelProps {
+  stats: { paid: number; pending: number; unpaid: number; total: number }
+  tasksDone: number
+  tasksTotal: number
+  open: boolean
+  onToggle: () => void
+}
+
+function FinancePanelInner({ stats, tasksDone, tasksTotal, open, onToggle }: FinancePanelProps) {
+  const progress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0
+  const rows = [
+    { label: 'Encaissé',   value: stats.paid,    color: '#10b981' },
+    { label: 'En attente', value: stats.pending,  color: '#f59e0b' },
+    { label: 'Impayé',     value: stats.unpaid,   color: '#ef4444' },
+  ]
+
+  return (
+    <>
+      {/* Desktop: right side vertical panel */}
+      <div
+        className={`hidden lg:flex flex-col shrink-0 border-l border-[#1a1a1f] transition-all duration-300 overflow-hidden`}
+        style={{ width: open ? 220 : 40, background: '#0a0a0d' }}
+      >
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-center h-10 hover:bg-[#1a1a1f] transition-colors shrink-0 border-b border-[#1a1a1f]"
+          title={open ? 'Masquer le panneau' : 'Afficher les finances'}
+        >
+          {open
+            ? <ChevronRight size={14} className="text-zinc-600" />
+            : <ChevronLeft size={14} className="text-zinc-600" />}
+        </button>
+        {open && (
+          <div className="p-3 space-y-3 overflow-y-auto flex-1">
+            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Finances</p>
+            {rows.map(({ label, value, color }) => (
+              <div key={label} className="flex items-center justify-between">
+                <span className="text-[10px] text-zinc-500">{label}</span>
+                <span className="text-[11px] font-semibold" style={{ color }}>
+                  {value.toLocaleString('fr-FR')} €
+                </span>
+              </div>
+            ))}
+            <div className="border-t border-[#1a1a1f] pt-2 flex items-center justify-between">
+              <span className="text-[10px] text-zinc-500">Total</span>
+              <span className="text-xs font-bold text-white">{stats.total.toLocaleString('fr-FR')} €</span>
+            </div>
+            <div className="border-t border-[#1a1a1f] pt-2">
+              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-2">Tâches</p>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] text-zinc-500">{tasksDone}/{tasksTotal}</span>
+                <span className="text-[10px] text-zinc-500">{Math.round(progress)}%</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-[#1a1a1f] overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile: bottom horizontal strip */}
+      <div
+        className={`lg:hidden shrink-0 border-t border-[#1a1a1f] transition-all duration-300 overflow-hidden`}
+        style={{ height: open ? 180 : 48, background: '#0a0a0d' }}
+      >
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-between px-4 h-12 hover:bg-[#1a1a1f] transition-colors"
+        >
+          <span className="text-xs font-semibold text-zinc-400">Finances</span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-white">{stats.total.toLocaleString('fr-FR')} €</span>
+            <ChevronLeft
+              size={14}
+              className={`text-zinc-600 transition-transform duration-300 ${open ? '-rotate-90' : 'rotate-90'}`}
+            />
+          </div>
+        </button>
+        {open && (
+          <div className="px-4 pb-4 grid grid-cols-3 gap-3">
+            {rows.map(({ label, value, color }) => (
+              <div key={label} className="rounded-xl p-2.5" style={{ background: color + '12', border: `1px solid ${color}30` }}>
+                <p className="text-[9px] text-zinc-500 mb-0.5">{label}</p>
+                <p className="text-xs font-bold" style={{ color }}>{value.toLocaleString('fr-FR')} €</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
+function PlanningTooltip({ tooltip, clients }: { tooltip: TooltipState; clients: Client[] }) {
+  const x = Math.min(tooltip.x + 12, window.innerWidth - 234)
+  const y = Math.max(8, Math.min(tooltip.y - 16, window.innerHeight - 180))
+
+  if (tooltip.kind === 'event') {
+    const ev = tooltip.data as EventItem
+    const client = clients.find(c => c.id === ev.clientId)
+    const durationH = (toMin(ev.endTime ?? '10:00') - toMin(ev.startTime ?? '09:00')) / 60
+    const amount = ev.overridePrice ?? (client?.hourlyRate ? durationH * client.hourlyRate : null)
+    const ps = PAYMENT_STYLE[ev.paymentStatus] ?? PAYMENT_STYLE['not-worked']
+
+    return (
+      <div
+        className="fixed z-[100] pointer-events-none rounded-xl p-3 shadow-2xl min-w-[180px] max-w-[220px]"
+        style={{ left: x, top: y, background: '#0e0e11', border: `1px solid ${ps.border}40` }}
+      >
+        <p className="text-sm font-semibold mb-1 truncate" style={{ color: ps.title }}>{ev.title}</p>
+        <p className="text-xs text-zinc-500">{ev.startTime}–{ev.endTime} ({durationH.toFixed(1)}h)</p>
+        {client && <p className="text-xs text-zinc-400 mt-1">{client.name}</p>}
+        {amount !== null && amount > 0 && (
+          <p className="text-sm font-bold mt-1.5" style={{ color: ps.sub }}>{amount.toLocaleString('fr-FR')} €</p>
+        )}
+      </div>
+    )
+  }
+
+  const task = tooltip.data as TaskItem
+  const tc = task.color || (task.priority === 1 ? '#ef4444' : task.priority === 2 ? '#f59e0b' : '#10b981')
+  const PRIORITY_LABEL: Record<number, string> = { 1: 'Urgent', 2: 'Moyen', 3: 'Faible' }
+
+  return (
+    <div
+      className="fixed z-[100] pointer-events-none rounded-xl p-3 shadow-2xl min-w-[180px] max-w-[220px]"
+      style={{ left: x, top: y, background: '#0e0e11', border: `1px solid ${tc}40` }}
+    >
+      <p className="text-sm font-semibold mb-1 truncate" style={{ color: tc }}>{task.title}</p>
+      <p className="text-xs text-zinc-500">{task.startTime}–{task.endTime}</p>
+      {task.description && <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{task.description}</p>}
+      <p className="text-xs mt-1.5 font-medium" style={{ color: tc }}>{PRIORITY_LABEL[task.priority ?? 2]}</p>
+    </div>
+  )
+}
+
 // ─── TimeGrid ────────────────────────────────────────────────────────────────
 interface GridProps {
   days: Date[]
   tasks: TaskItem[]
   events: EventItem[]
+  clients: Client[]
   nowPx: number
   showNow: boolean
   onDayClick: (day: Date, minutes: number) => void
@@ -88,9 +259,11 @@ interface GridProps {
   onDrop: (e: React.DragEvent, day: Date) => void
   onEditTask: (task: TaskItem) => void
   onEditEvent: (ev: EventItem) => void
+  onShowTooltip: (data: TaskItem | EventItem, kind: 'task' | 'event', x: number, y: number) => void
+  onHideTooltip: () => void
 }
 
-function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTask, onCompleteTask, onDeleteEvent, onDragStart, onDrop, onEditTask, onEditEvent }: GridProps) {
+function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, onDeleteTask, onCompleteTask, onDeleteEvent, onDragStart, onDrop, onEditTask, onEditEvent, onShowTooltip, onHideTooltip }: GridProps) {
   const totalH = HOURS.length * HOUR_H
   const isToday = (d: Date) => isSameDay(d, new Date())
 
@@ -112,16 +285,26 @@ function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTas
         {/* Day headers */}
         <div className="grid sticky top-0 z-20 border-b border-[#1a1a1f]"
           style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, background: '#0a0a0d' }}>
-          {days.map((day, i) => (
-            <div key={i} className={`flex flex-col items-center justify-center py-2.5 border-r border-[#1a1a1f] last:border-r-0 ${isToday(day) ? 'bg-emerald-500/5' : ''}`}>
-              <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
-                {format(day, 'EEE', { locale: fr })}
-              </span>
-              <span className={`text-base font-bold mt-0.5 w-8 h-8 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-emerald-500 text-white' : 'text-zinc-300'}`}>
-                {format(day, 'd')}
-              </span>
-            </div>
-          ))}
+          {days.map((day, i) => {
+            const ds = format(day, 'yyyy-MM-dd')
+            const dayEvents = events.filter(e => e.date === ds && e.isBillable)
+            const dayRev = dayEvents.reduce((sum, ev) => sum + eventRevenue(ev, clients), 0)
+            return (
+              <div key={i} className={`flex flex-col items-center justify-center py-2 border-r border-[#1a1a1f] last:border-r-0 ${isToday(day) ? 'bg-emerald-500/5' : ''}`}>
+                <span className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">
+                  {format(day, 'EEE', { locale: fr })}
+                </span>
+                <span className={`text-base font-bold mt-0.5 w-8 h-8 flex items-center justify-center rounded-full ${isToday(day) ? 'bg-emerald-500 text-white' : 'text-zinc-300'}`}>
+                  {format(day, 'd')}
+                </span>
+                {dayRev > 0 && (
+                  <span className="text-[9px] font-semibold mt-0.5 px-1.5 py-0.5 rounded-full" style={{ background: '#10b98118', color: '#10b981' }}>
+                    {dayRev.toLocaleString('fr-FR')}€
+                  </span>
+                )}
+              </div>
+            )
+          })}
         </div>
 
         {/* Grid body */}
@@ -164,17 +347,23 @@ function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTas
                   const overlapTasks = dayTasks.filter(t =>
                     t.status !== 'done' && overlaps(evRange, { s: toMin(t.startTime ?? '09:00'), e: toMin(t.endTime ?? '10:00') })
                   ).slice(0, 3)
+                  const rev = eventRevenue(ev, clients)
 
                   return (
                     <div key={ev.id} draggable
                       onDragStart={e => { e.stopPropagation(); onDragStart(e, ev) }}
                       onClick={e => { e.stopPropagation(); onEditEvent(ev) }}
-                      className="absolute left-1 right-1 rounded-lg overflow-hidden cursor-pointer group select-none z-10"
+                      onMouseEnter={e => onShowTooltip(ev, 'event', e.clientX, e.clientY)}
+                      onMouseLeave={onHideTooltip}
+                      className="absolute left-1 right-1 rounded-xl overflow-hidden cursor-pointer group select-none z-10 transition-transform duration-150 hover:scale-[1.02] hover:shadow-xl hover:z-20"
                       style={{ top: top + 1, height: h - 2, background: ps.bg, borderLeft: `3px solid ${ps.border}`, boxShadow: `0 1px 8px ${ps.border}30` }}
                     >
                       <div className="px-2 py-1 h-full relative">
                         <p className="text-[11px] font-semibold truncate leading-tight" style={{ color: ps.title }}>{ev.title}</p>
                         {h > 32 && <p className="text-[9px] mt-0.5" style={{ color: ps.sub }}>{ev.startTime}–{ev.endTime}</p>}
+                        {h > 44 && rev > 0 && (
+                          <p className="text-[9px] font-bold mt-0.5" style={{ color: ps.sub }}>{rev.toLocaleString('fr-FR')}€</p>
+                        )}
 
                         {/* Overlapping task icons */}
                         {overlapTasks.length > 0 && h > 28 && (
@@ -213,7 +402,9 @@ function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTas
                     <div key={task.id} draggable={!done}
                       onDragStart={e => { e.stopPropagation(); if (!done) onDragStart(e, task) }}
                       onClick={e => { e.stopPropagation(); if (!done) onEditTask(task) }}
-                      className={`absolute left-1 right-1 rounded-lg overflow-hidden select-none z-10 group flex ${done ? 'opacity-40' : 'cursor-pointer'}`}
+                      onMouseEnter={e => { if (!done) onShowTooltip(task, 'task', e.clientX, e.clientY) }}
+                      onMouseLeave={onHideTooltip}
+                      className={`absolute left-1 right-1 rounded-xl overflow-hidden select-none z-10 group flex transition-transform duration-150 ${done ? 'opacity-40' : 'cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:z-20'}`}
                       style={{ top: top + 1, height: h - 2, background: taskColor + '12', borderLeft: `3px solid ${taskColor}` }}
                     >
                       {/* Icon strip */}
@@ -236,7 +427,6 @@ function TimeGrid({ days, tasks, events, nowPx, showNow, onDayClick, onDeleteTas
 
                       {/* Priority indicator */}
                       <div className="absolute top-1 right-1 flex items-center gap-0.5">
-                        <span className="opacity-0 group-hover:opacity-0">{/* spacer */}</span>
                         {!done && PRIORITY_ICON[task.priority ?? 3]}
                       </div>
 
@@ -271,6 +461,7 @@ interface MonthProps {
   refDate: Date
   tasks: TaskItem[]
   events: EventItem[]
+  clients: Client[]
   onEditTask: (task: TaskItem) => void
   onEditEvent: (ev: EventItem) => void
   onNavigateWeek: (day: Date) => void
@@ -278,7 +469,7 @@ interface MonthProps {
   onCreateEvent: (day: Date) => void
 }
 
-function MonthView({ days, refDate, tasks, events, onEditTask, onEditEvent, onNavigateWeek, onNavigateDay, onCreateEvent }: MonthProps) {
+function MonthView({ days, refDate, tasks, events, clients, onEditTask, onEditEvent, onNavigateWeek, onNavigateDay, onCreateEvent }: MonthProps) {
   const today = new Date()
   const DOW = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
   const [menuDay, setMenuDay] = useState<string | null>(null)
@@ -338,6 +529,19 @@ function MonthView({ days, refDate, tasks, events, onEditTask, onEditEvent, onNa
                   })}
                   {total > 2 && <div className="text-[9px] text-zinc-600 px-1.5">+{total - 2} autres</div>}
                 </div>
+
+                {/* Colored dots for event payment statuses */}
+                {de.length > 0 && inMonth && (
+                  <div className="absolute bottom-1.5 right-1.5 flex gap-0.5">
+                    {de.slice(0, 3).map(ev => {
+                      const ps = PAYMENT_STYLE[ev.paymentStatus] ?? PAYMENT_STYLE['not-worked']
+                      return (
+                        <div key={ev.id} className="w-1.5 h-1.5 rounded-full" style={{ background: ps.border }} />
+                      )
+                    })}
+                  </div>
+                )}
+
                 {total === 0 && inMonth && (
                   <Plus size={12} className="absolute bottom-2 right-2 text-zinc-800 opacity-0 group-hover:opacity-100 transition-opacity" />
                 )}
@@ -389,6 +593,29 @@ export function Planning() {
   const gridRef = useRef<HTMLDivElement>(null)
 
   const [titleError, setTitleError] = useState(false)
+
+  // Finance panel
+  const [panelOpen, setPanelOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem('fleemy:planning:panel') !== 'false' } catch { return true }
+  })
+
+  useEffect(() => {
+    try { localStorage.setItem('fleemy:planning:panel', String(panelOpen)) } catch { /* ignore */ }
+  }, [panelOpen])
+
+  // Tooltip
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null)
+  const tooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showTooltip = useCallback((data: TaskItem | EventItem, kind: 'task' | 'event', x: number, y: number) => {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current)
+    tooltipTimer.current = setTimeout(() => setTooltip({ id: data.id, kind, x, y, data }), 400)
+  }, [])
+
+  const hideTooltip = useCallback(() => {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current)
+    setTooltip(null)
+  }, [])
 
   const [tForm, setTForm] = useState({
     title: '', date: format(new Date(), 'yyyy-MM-dd'),
@@ -498,11 +725,13 @@ export function Planning() {
     return format(current, 'MMMM yyyy', { locale: fr })
   }, [view, current])
 
-  // Payment status label
+  const financeStats = useMemo(() => calcFinance(events, clients), [events, clients])
+  const tasksDone = useMemo(() => tasks.filter(t => t.status === 'done').length, [tasks])
+
   const PAYMENT_LABELS: Record<string, string> = { paid: 'Payé', unpaid: 'Impayé', pending: 'En attente', 'not-worked': 'Non travaillé' }
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0d]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="flex flex-col h-full bg-[#0a0a0d]">
       {/* Header */}
       <div className="shrink-0 flex flex-col gap-2 px-4 py-3 border-b border-[#1a1a1f] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5 sm:gap-0">
         <div className="flex items-center justify-between sm:gap-4">
@@ -530,179 +759,224 @@ export function Planning() {
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 overflow-auto" ref={gridRef}>
-        {view === 'month' ? (
-          <MonthView days={days} refDate={current} tasks={tasks} events={events}
-            onEditTask={openEditTask} onEditEvent={openEditEvent}
-            onCreateEvent={d => openModal('event', format(d, 'yyyy-MM-dd'))}
-            onNavigateWeek={d => { setCurrent(d); setView('week') }}
-            onNavigateDay={d => { setCurrent(d); setView('day') }}
-          />
-        ) : (
-          <TimeGrid days={days} tasks={tasks} events={events}
-            nowPx={nowPx} showNow={showNow}
-            onDayClick={(day, min) => openModal('event', format(day, 'yyyy-MM-dd'), min)}
-            onDeleteTask={id => { deleteTask(id); toast('Tâche supprimée') }}
-            onCompleteTask={id => { updateTask(id, { status: 'done' }); toast('Terminée ✓') }}
-            onDeleteEvent={id => { deleteEvent(id); toast('Créneau supprimé') }}
-            onDragStart={handleDragStart} onDrop={handleDrop}
-            onEditTask={openEditTask} onEditEvent={openEditEvent}
-          />
-        )}
+      {/* Body: grid + finance panel */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+        <div className="flex-1 overflow-auto min-h-0" ref={gridRef}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={view}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+              className="h-full"
+            >
+              {view === 'month' ? (
+                <MonthView
+                  days={days} refDate={current} tasks={tasks} events={events} clients={clients}
+                  onEditTask={openEditTask} onEditEvent={openEditEvent}
+                  onCreateEvent={d => openModal('event', format(d, 'yyyy-MM-dd'))}
+                  onNavigateWeek={d => { setCurrent(d); setView('week') }}
+                  onNavigateDay={d => { setCurrent(d); setView('day') }}
+                />
+              ) : (
+                <TimeGrid
+                  days={days} tasks={tasks} events={events} clients={clients}
+                  nowPx={nowPx} showNow={showNow}
+                  onDayClick={(day, min) => openModal('event', format(day, 'yyyy-MM-dd'), min)}
+                  onDeleteTask={id => { deleteTask(id); toast('Tâche supprimée') }}
+                  onCompleteTask={id => { updateTask(id, { status: 'done' }); toast('Terminée ✓') }}
+                  onDeleteEvent={id => { deleteEvent(id); toast('Créneau supprimé') }}
+                  onDragStart={handleDragStart} onDrop={handleDrop}
+                  onEditTask={openEditTask} onEditEvent={openEditEvent}
+                  onShowTooltip={showTooltip} onHideTooltip={hideTooltip}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        <FinancePanelInner
+          stats={financeStats}
+          tasksDone={tasksDone}
+          tasksTotal={tasks.length}
+          open={panelOpen}
+          onToggle={() => setPanelOpen(o => !o)}
+        />
       </div>
 
       {/* Modal */}
-      {modal && (
-        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={closeModal}>
-          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ background: '#0e0e11', border: '1px solid #1e1e24' }} onClick={e => e.stopPropagation()}>
+      <AnimatePresence>
+        {modal && (
+          <motion.div
+            key="planning-modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+            onClick={closeModal}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              role="dialog"
+              aria-modal="true"
+              className="w-full max-w-md rounded-3xl p-6 shadow-2xl"
+              style={{ background: '#0e0e11', border: '1px solid #1e1e24' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                {editingId ? (
+                  <span className="text-sm font-semibold text-zinc-300">
+                    {mType === 'task' ? 'Modifier la tâche' : 'Modifier le créneau'}
+                  </span>
+                ) : (
+                  <div className="flex bg-[#0a0a0d] rounded-xl p-0.5 border border-[#1a1a1f]">
+                    <button onClick={() => setMType('task')} className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'task' ? 'bg-[#1e1e24] text-zinc-100' : 'text-zinc-600 hover:text-zinc-400'}`}>Tâche</button>
+                    <button onClick={() => setMType('event')} className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'event' ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}>Créneau</button>
+                  </div>
+                )}
+                <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors"><X size={15} /></button>
+              </div>
 
-            {/* Header */}
-            <div className="flex items-center justify-between mb-5">
-              {editingId ? (
-                <span className="text-sm font-semibold text-zinc-300">
-                  {mType === 'task' ? 'Modifier la tâche' : 'Modifier le créneau'}
-                </span>
-              ) : (
-                <div className="flex bg-[#0a0a0d] rounded-xl p-0.5 border border-[#1a1a1f]">
-                  <button onClick={() => setMType('task')} className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'task' ? 'bg-[#1e1e24] text-zinc-100' : 'text-zinc-600 hover:text-zinc-400'}`}>Tâche</button>
-                  <button onClick={() => setMType('event')} className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${mType === 'event' ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}>Créneau</button>
-                </div>
-              )}
-              <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors"><X size={15} /></button>
-            </div>
+              {mType === 'task' ? (
+                <div className="space-y-3">
+                  <input autoFocus placeholder="Titre de la tâche…"
+                    className={`w-full bg-[#0a0a0d] border rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-all ${titleError ? 'border-red-500 animate-[shake_0.3s_ease]' : 'border-[#1e1e24] focus:border-zinc-600'}`}
+                    value={tForm.title} onChange={e => { setTitleError(false); setTForm(f => ({ ...f, title: e.target.value })) }}
+                    onKeyDown={e => e.key === 'Enter' && saveTask()} />
 
-            {mType === 'task' ? (
-              <div className="space-y-3">
-                <input autoFocus placeholder="Titre de la tâche…"
-                  className={`w-full bg-[#0a0a0d] border rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-all ${titleError ? 'border-red-500 animate-[shake_0.3s_ease]' : 'border-[#1e1e24] focus:border-zinc-600'}`}
-                  value={tForm.title} onChange={e => { setTitleError(false); setTForm(f => ({ ...f, title: e.target.value })) }}
-                  onKeyDown={e => e.key === 'Enter' && saveTask()} />
+                  {/* Icon picker */}
+                  <div>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1.5">Icône</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {TASK_ICONS.map(({ key, Icon }) => {
+                        const active = tForm.icon === key
+                        const c = tForm.color || '#a1a1aa'
+                        return (
+                          <button key={key} onClick={() => setTForm(f => ({ ...f, icon: active ? '' : key }))}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+                            style={{ background: active ? c + '25' : '#111114', border: `1px solid ${active ? c : '#1e1e24'}` }}>
+                            <Icon size={13} style={{ color: active ? c : '#52525b' }} />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
 
-                {/* Icon picker */}
-                <div>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1.5">Icône</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {TASK_ICONS.map(({ key, Icon }) => {
-                      const active = tForm.icon === key
-                      const c = tForm.color || '#a1a1aa'
+                  {/* Color picker */}
+                  <div>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1.5">Couleur</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {TASK_COLORS.map(c => (
+                        <button key={c} onClick={() => setTForm(f => ({ ...f, color: f.color === c ? '' : c }))}
+                          className="w-6 h-6 rounded-full transition-all"
+                          style={{ background: c, boxShadow: tForm.color === c ? `0 0 0 2px #0e0e11, 0 0 0 4px ${c}` : 'none' }} />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="date" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-all [color-scheme:dark]"
+                      value={tForm.date} onChange={e => setTForm(f => ({ ...f, date: e.target.value }))} />
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-all [color-scheme:dark]"
+                        value={tForm.startTime} onChange={e => setTForm(f => ({ ...f, startTime: e.target.value }))} />
+                      <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-all [color-scheme:dark]"
+                        value={tForm.endTime} onChange={e => setTForm(f => ({ ...f, endTime: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  {/* Priority */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {([1, 2, 3] as const).map(p => {
+                      const [label, icon, cls] = p === 1
+                        ? ['Urgent', <AlertCircle size={11} />, tForm.priority === p ? 'bg-red-500/15 border-red-500/40 text-red-300' : 'border-[#1e1e24] text-zinc-700 hover:text-zinc-500']
+                        : p === 2
+                        ? ['Moyen', <AlertTriangle size={11} />, tForm.priority === p ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'border-[#1e1e24] text-zinc-700 hover:text-zinc-500']
+                        : ['Faible', <CheckCircle2 size={11} />, tForm.priority === p ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'border-[#1e1e24] text-zinc-700 hover:text-zinc-500']
                       return (
-                        <button key={key} onClick={() => setTForm(f => ({ ...f, icon: active ? '' : key }))}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-                          style={{ background: active ? c + '25' : '#111114', border: `1px solid ${active ? c : '#1e1e24'}` }}>
-                          <Icon size={13} style={{ color: active ? c : '#52525b' }} />
+                        <button key={p} onClick={() => setTForm(f => ({ ...f, priority: p }))}
+                          className={`py-2 rounded-full text-xs font-medium border transition-all flex items-center justify-center gap-1.5 ${cls}`}>
+                          {icon} {label}
                         </button>
                       )
                     })}
                   </div>
-                </div>
 
-                {/* Color picker */}
-                <div>
-                  <p className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1.5">Couleur</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {TASK_COLORS.map(c => (
-                      <button key={c} onClick={() => setTForm(f => ({ ...f, color: f.color === c ? '' : c }))}
-                        className="w-6 h-6 rounded-full transition-all"
-                        style={{ background: c, boxShadow: tForm.color === c ? `0 0 0 2px #0e0e11, 0 0 0 4px ${c}` : 'none' }} />
-                    ))}
-                  </div>
-                </div>
+                  <textarea rows={2} placeholder="Description (optionnel)"
+                    className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all resize-none"
+                    value={tForm.description} onChange={e => setTForm(f => ({ ...f, description: e.target.value }))} />
 
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="date" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-all [color-scheme:dark]"
-                    value={tForm.date} onChange={e => setTForm(f => ({ ...f, date: e.target.value }))} />
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-all [color-scheme:dark]"
-                      value={tForm.startTime} onChange={e => setTForm(f => ({ ...f, startTime: e.target.value }))} />
-                    <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-zinc-600 transition-all [color-scheme:dark]"
-                      value={tForm.endTime} onChange={e => setTForm(f => ({ ...f, endTime: e.target.value }))} />
-                  </div>
-                </div>
-
-                {/* Priority */}
-                <div className="grid grid-cols-3 gap-1.5">
-                  {([1, 2, 3] as const).map(p => {
-                    const [label, icon, cls] = p === 1
-                      ? ['Urgent', <AlertCircle size={11} />, tForm.priority === p ? 'bg-red-500/15 border-red-500/40 text-red-300' : 'border-[#1e1e24] text-zinc-700 hover:text-zinc-500']
-                      : p === 2
-                      ? ['Moyen', <AlertTriangle size={11} />, tForm.priority === p ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'border-[#1e1e24] text-zinc-700 hover:text-zinc-500']
-                      : ['Faible', <CheckCircle2 size={11} />, tForm.priority === p ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'border-[#1e1e24] text-zinc-700 hover:text-zinc-500']
-                    return (
-                      <button key={p} onClick={() => setTForm(f => ({ ...f, priority: p }))}
-                        className={`py-2 rounded-xl text-xs font-medium border transition-all flex items-center justify-center gap-1.5 ${cls}`}>
-                        {icon} {label}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <textarea rows={2} placeholder="Description (optionnel)"
-                  className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none focus:border-zinc-600 transition-all resize-none"
-                  value={tForm.description} onChange={e => setTForm(f => ({ ...f, description: e.target.value }))} />
-
-                <button onClick={saveTask}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                  style={{ background: tForm.color || '#3f3f46', color: 'white', boxShadow: tForm.color ? `0 2px 12px ${tForm.color}40` : 'none' }}>
-                  {editingId ? 'Modifier la tâche' : 'Créer la tâche'}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                <input autoFocus placeholder="Titre du créneau…"
-                  className={`w-full bg-[#0a0a0d] border rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-all ${titleError ? 'border-red-500 animate-[shake_0.3s_ease]' : 'border-[#1e1e24] focus:border-indigo-500/40'}`}
-                  value={eForm.title} onChange={e => { setTitleError(false); setEForm(f => ({ ...f, title: e.target.value })) }}
-                  onKeyDown={e => e.key === 'Enter' && saveEvent()} />
-
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="date" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all [color-scheme:dark]"
-                    value={eForm.date} onChange={e => setEForm(f => ({ ...f, date: e.target.value }))} />
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all [color-scheme:dark]"
-                      value={eForm.startTime} onChange={e => setEForm(f => ({ ...f, startTime: e.target.value }))} />
-                    <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all [color-scheme:dark]"
-                      value={eForm.endTime} onChange={e => setEForm(f => ({ ...f, endTime: e.target.value }))} />
-                  </div>
-                </div>
-
-                {/* Payment status */}
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['paid', 'pending', 'unpaid'] as const).map(s => {
-                    const ps = PAYMENT_STYLE[s]
-                    const active = eForm.paymentStatus === s
-                    return (
-                      <button key={s} onClick={() => setEForm(f => ({ ...f, paymentStatus: s }))}
-                        className="py-2 rounded-xl text-xs font-medium border transition-all"
-                        style={{ background: active ? ps.border + '20' : 'transparent', borderColor: active ? ps.border + '60' : '#1e1e24', color: active ? ps.title : '#52525b' }}>
-                        {PAYMENT_LABELS[s]}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <select className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all"
-                  value={eForm.clientId} onChange={e => setEForm(f => ({ ...f, clientId: e.target.value }))}>
-                  <option value="">Aucun client</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-
-                <label className="flex items-center gap-3 cursor-pointer select-none">
-                  <button type="button" onClick={() => setEForm(f => ({ ...f, isBillable: !f.isBillable }))}
-                    className={`relative w-10 h-[22px] rounded-full transition-colors duration-200 ${eForm.isBillable ? 'bg-indigo-500' : 'bg-[#1e1e24]'}`}>
-                    <div className={`absolute top-[3px] w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${eForm.isBillable ? 'translate-x-5' : 'translate-x-[3px]'}`} />
+                  <button onClick={saveTask}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                    style={{ background: tForm.color || '#3f3f46', color: 'white', boxShadow: tForm.color ? `0 2px 12px ${tForm.color}40` : 'none' }}>
+                    {editingId ? 'Modifier la tâche' : 'Créer la tâche'}
                   </button>
-                  <span className="text-sm text-zinc-300">Facturable</span>
-                </label>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <input autoFocus placeholder="Titre du créneau…"
+                    className={`w-full bg-[#0a0a0d] border rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-all ${titleError ? 'border-red-500 animate-[shake_0.3s_ease]' : 'border-[#1e1e24] focus:border-indigo-500/40'}`}
+                    value={eForm.title} onChange={e => { setTitleError(false); setEForm(f => ({ ...f, title: e.target.value })) }}
+                    onKeyDown={e => e.key === 'Enter' && saveEvent()} />
 
-                <button onClick={saveEvent}
-                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors shadow-[0_2px_12px_rgba(99,102,241,0.25)]">
-                  {editingId ? 'Modifier le créneau' : 'Créer le créneau'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="date" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all [color-scheme:dark]"
+                      value={eForm.date} onChange={e => setEForm(f => ({ ...f, date: e.target.value }))} />
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all [color-scheme:dark]"
+                        value={eForm.startTime} onChange={e => setEForm(f => ({ ...f, startTime: e.target.value }))} />
+                      <input type="time" className="bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all [color-scheme:dark]"
+                        value={eForm.endTime} onChange={e => setEForm(f => ({ ...f, endTime: e.target.value }))} />
+                    </div>
+                  </div>
+
+                  {/* Payment status */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(['paid', 'pending', 'unpaid'] as const).map(s => {
+                      const ps = PAYMENT_STYLE[s]
+                      const active = eForm.paymentStatus === s
+                      return (
+                        <button key={s} onClick={() => setEForm(f => ({ ...f, paymentStatus: s }))}
+                          className="py-2 rounded-xl text-xs font-medium border transition-all"
+                          style={{ background: active ? ps.border + '20' : 'transparent', borderColor: active ? ps.border + '60' : '#1e1e24', color: active ? ps.title : '#52525b' }}>
+                          {PAYMENT_LABELS[s]}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <select className="w-full bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all"
+                    value={eForm.clientId} onChange={e => setEForm(f => ({ ...f, clientId: e.target.value }))}>
+                    <option value="">Aucun client</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <button type="button" onClick={() => setEForm(f => ({ ...f, isBillable: !f.isBillable }))}
+                      className={`relative w-10 h-[22px] rounded-full transition-colors duration-200 ${eForm.isBillable ? 'bg-indigo-500' : 'bg-[#1e1e24]'}`}>
+                      <div className={`absolute top-[3px] w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${eForm.isBillable ? 'translate-x-5' : 'translate-x-[3px]'}`} />
+                    </button>
+                    <span className="text-sm text-zinc-300">Facturable</span>
+                  </label>
+
+                  <button onClick={saveEvent}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors shadow-[0_2px_12px_rgba(99,102,241,0.25)]">
+                    {editingId ? 'Modifier le créneau' : 'Créer le créneau'}
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tooltip */}
+      {tooltip && <PlanningTooltip tooltip={tooltip} clients={clients} />}
     </div>
   )
 }
