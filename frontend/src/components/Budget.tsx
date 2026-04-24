@@ -162,9 +162,9 @@ export function Budget() {
 
       {/* Transactions list */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl">
-        <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+        <div className="p-4 border-b border-zinc-800 flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-sm font-medium text-white">Transactions</h2>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {(['all', 'income', 'expense', 'savings'] as const).map(type => (
               <button
                 key={type}

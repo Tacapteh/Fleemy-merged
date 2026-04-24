@@ -109,7 +109,7 @@ export function Clients() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {(['all', 'active', 'lead', 'inactive'] as StatusFilter[]).map(s => (
             <button
               key={s}

@@ -122,7 +122,7 @@ export function Notes() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {(['all', 'pending', 'done'] as FilterType[]).map(f => (
             <button
               key={f}

@@ -126,7 +126,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Chart + Quick actions */}
-      <div className="grid lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-xl p-4">
           <h2 className="text-sm font-medium text-zinc-400 mb-4">Revenus vs Dépenses (6 mois)</h2>
           <ResponsiveContainer width="100%" height={200}>
@@ -172,7 +172,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Today's events + urgent tasks */}
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
           <h2 className="text-sm font-medium text-zinc-400 mb-3 flex items-center gap-2">
             <Calendar size={14} /> Créneaux aujourd'hui
