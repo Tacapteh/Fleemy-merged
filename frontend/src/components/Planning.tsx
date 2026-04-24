@@ -118,12 +118,34 @@ interface FinancePanelProps {
   taskCosts: number
   historicalRevenue: number
   historicalCount: number
+  tasks: TaskItem[]
+  clients: Client[]
   open: boolean
   onToggle: () => void
+  viewMode: ViewMode
 }
 
-function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, historicalRevenue, historicalCount, open, onToggle }: FinancePanelProps) {
+function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, historicalRevenue, historicalCount, tasks, clients, open, onToggle, viewMode }: FinancePanelProps) {
   const progress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0
+  
+  // Group tasks by name and calculate totals
+  const tasksByName = useMemo(() => {
+    const grouped = new Map<string, { name: string; clientId?: string; clientName?: string; count: number; totalAmount: number; tasks: TaskItem[] }>()
+    tasks.forEach(t => {
+      if (t.montantTache !== undefined && t.montantTache !== 0) {
+        const key = t.title
+        const existing = grouped.get(key)
+        const clientName = t.clientId ? clients.find(c => c.id === t.clientId)?.name : undefined
+        const entry = existing || { name: t.title, clientId: t.clientId, clientName, count: 0, totalAmount: 0, tasks: [] }
+        entry.count += 1
+        entry.totalAmount += t.montantTache
+        entry.tasks.push(t)
+        grouped.set(key, entry)
+      }
+    })
+    return Array.from(grouped.values()).sort((a, b) => b.totalAmount - a.totalAmount)
+  }, [tasks, clients])
+  
   const rows = [
     { label: 'Encaissé',   value: stats.paid,    color: '#10b981' },
     { label: 'En attente', value: stats.pending,  color: '#f59e0b' },
@@ -135,7 +157,7 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
       {/* Desktop: right side vertical panel */}
       <div
         className={`hidden lg:flex flex-col shrink-0 border-l border-[#1a1a1f] transition-all duration-300 overflow-hidden`}
-        style={{ width: open ? 220 : 40, background: '#0a0a0d' }}
+        style={{ width: open ? 280 : 40, background: '#0a0a0d' }}
       >
         <button
           onClick={onToggle}
@@ -148,7 +170,10 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
         </button>
         {open && (
           <div className="p-3 space-y-3 overflow-y-auto flex-1">
-            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Finances</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">Finances</p>
+              <span className="text-[9px] text-zinc-700 px-1.5 py-0.5 rounded-full bg-[#1a1a1f]">{viewMode === 'day' ? 'Jour' : viewMode === 'week' ? 'Semaine' : 'Mois'}</span>
+            </div>
             {rows.map(({ label, value, color }) => (
               <div key={label} className="flex items-center justify-between">
                 <span className="text-[10px] text-zinc-500">{label}</span>
@@ -176,22 +201,30 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
             </div>
             {(taskRevenue > 0 || taskCosts < 0) && (
               <div className="border-t border-[#1a1a1f] pt-2 space-y-1.5">
-                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-1">Revenus tâches</p>
-                {taskRevenue > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-zinc-500">Revenus</span>
-                    <span className="text-[11px] font-semibold text-emerald-400">{taskRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-2">Revenus tâches</p>
+                {tasksByName.length > 0 ? (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {tasksByName.map((item, idx) => (
+                      <div key={idx} className="p-1.5 rounded-lg bg-[#1a1a1f]">
+                        <div className="flex items-start justify-between gap-1 mb-0.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-semibold text-white truncate">{item.name}</p>
+                            {item.clientName && <p className="text-[8px] text-zinc-500 truncate">{item.clientName}</p>}
+                          </div>
+                          {item.count > 1 && <span className="text-[9px] text-zinc-600 px-1 py-0.5 rounded bg-[#0a0a0d]">x{item.count}</span>}
+                        </div>
+                        <p className={`text-[10px] font-bold ${item.totalAmount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {item.totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                        </p>
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  <p className="text-[9px] text-zinc-600">Aucune tâche facturée</p>
                 )}
-                {taskCosts < 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-zinc-500">Coûts</span>
-                    <span className="text-[11px] font-semibold text-red-400">{taskCosts.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between border-t border-[#1a1a1f] pt-1">
+                <div className="flex items-center justify-between border-t border-[#1a1a1f] pt-1.5 mt-1.5">
                   <span className="text-[10px] text-zinc-500">Net</span>
-                  <span className={`text-[11px] font-bold ${(taskRevenue + taskCosts) >= 0 ? 'text-white' : 'text-red-400'}`}>
+                  <span className={`text-[11px] font-bold ${(taskRevenue + taskCosts) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {(taskRevenue + taskCosts).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                   </span>
                 </div>
@@ -216,13 +249,13 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
       {/* Mobile: bottom horizontal strip */}
       <div
         className={`lg:hidden shrink-0 border-t border-[#1a1a1f] transition-all duration-300 overflow-hidden`}
-        style={{ height: open ? 180 : 48, background: '#0a0a0d' }}
+        style={{ height: open ? 220 : 48, background: '#0a0a0d' }}
       >
         <button
           onClick={onToggle}
           className="w-full flex items-center justify-between px-4 h-12 hover:bg-[#1a1a1f] transition-colors"
         >
-          <span className="text-xs font-semibold text-zinc-400">Finances</span>
+          <span className="text-xs font-semibold text-zinc-400">Finances ({viewMode === 'day' ? 'Jour' : viewMode === 'week' ? 'Semaine' : 'Mois'})</span>
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-white">{stats.total.toLocaleString('fr-FR')} €</span>
             <ChevronLeft
@@ -232,13 +265,27 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
           </div>
         </button>
         {open && (
-          <div className="px-4 pb-4 grid grid-cols-3 gap-3">
-            {rows.map(({ label, value, color }) => (
-              <div key={label} className="rounded-xl p-2.5" style={{ background: color + '12', border: `1px solid ${color}30` }}>
-                <p className="text-[9px] text-zinc-500 mb-0.5">{label}</p>
-                <p className="text-xs font-bold" style={{ color }}>{value.toLocaleString('fr-FR')} €</p>
+          <div className="px-4 pb-4 space-y-2">
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {rows.map(({ label, value, color }) => (
+                <div key={label} className="rounded-xl p-2.5" style={{ background: color + '12', border: `1px solid ${color}30` }}>
+                  <p className="text-[9px] text-zinc-500 mb-0.5">{label}</p>
+                  <p className="text-xs font-bold" style={{ color }}>{value.toLocaleString('fr-FR')} €</p>
+                </div>
+              ))}
+            </div>
+            {tasksByName.length > 0 && (
+              <div className="max-h-24 overflow-y-auto space-y-1">
+                {tasksByName.slice(0, 3).map((item, idx) => (
+                  <div key={idx} className="text-[8px] flex items-center justify-between gap-1 p-1.5 rounded bg-[#1a1a1f]">
+                    <span className="truncate text-zinc-400">{item.name}{item.count > 1 ? ` (x${item.count})` : ''}</span>
+                    <span className={item.totalAmount > 0 ? 'text-emerald-400' : 'text-red-400'} style={{ fontWeight: 'bold' }}>
+                      {item.totalAmount.toLocaleString('fr-FR')}€
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -415,18 +462,23 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
                           <p className="text-[9px] font-bold mt-0.5" style={{ color: ps.sub }}>{rev.toLocaleString('fr-FR')}€</p>
                         )}
 
-                        {/* Overlapping task icons */}
+                        {/* Overlapping task icons - large and prominent */}
                         {overlapTasks.length > 0 && h > 28 && (
-                          <div className="absolute bottom-1 right-1 flex gap-0.5">
-                            {overlapTasks.map(t => {
+                          <div className="absolute bottom-1.5 right-1.5 flex gap-1">
+                            {overlapTasks.slice(0, 2).map(t => {
                               const TaskIconCmp = t.icon ? ICON_MAP[t.icon] : null
                               const ic = t.color || '#6366f1'
                               return (
-                                <div key={t.id} className="w-4 h-4 rounded flex items-center justify-center" style={{ background: ic + '30', border: `1px solid ${ic}60` }}>
-                                  {TaskIconCmp ? <TaskIconCmp size={8} style={{ color: ic }} /> : <Layers size={8} style={{ color: ic }} />}
+                                <div key={t.id} className="w-6 h-6 rounded-lg flex items-center justify-center transition-transform hover:scale-110" style={{ background: ic + '25', border: `2px solid ${ic}` }}>
+                                  {TaskIconCmp ? <TaskIconCmp size={12} style={{ color: ic }} /> : <Layers size={12} style={{ color: ic }} />}
                                 </div>
                               )
                             })}
+                            {overlapTasks.length > 2 && (
+                              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold text-zinc-300" style={{ background: '#52525b25', border: '2px solid #52525b' }}>
+                                +{overlapTasks.length - 2}
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -989,6 +1041,9 @@ export function Planning() {
           taskCosts={taskCosts}
           historicalRevenue={historicalRevenue}
           historicalCount={historicalCount}
+          tasks={tasks}
+          clients={clients}
+          viewMode={view}
           open={panelOpen}
           onToggle={() => setPanelOpen(o => !o)}
         />
