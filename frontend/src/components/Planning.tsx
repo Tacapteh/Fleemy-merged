@@ -106,11 +106,13 @@ interface FinancePanelProps {
   stats: { paid: number; pending: number; unpaid: number; total: number }
   tasksDone: number
   tasksTotal: number
+  taskRevenue: number
+  taskCosts: number
   open: boolean
   onToggle: () => void
 }
 
-function FinancePanelInner({ stats, tasksDone, tasksTotal, open, onToggle }: FinancePanelProps) {
+function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, open, onToggle }: FinancePanelProps) {
   const progress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0
   const rows = [
     { label: 'Encaissé',   value: stats.paid,    color: '#10b981' },
@@ -162,6 +164,29 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, open, onToggle }: Fin
                 />
               </div>
             </div>
+            {(taskRevenue > 0 || taskCosts < 0) && (
+              <div className="border-t border-[#1a1a1f] pt-2 space-y-1.5">
+                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-1">Revenus tâches</p>
+                {taskRevenue > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-500">Revenus</span>
+                    <span className="text-[11px] font-semibold text-emerald-400">{taskRevenue.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+                  </div>
+                )}
+                {taskCosts < 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-500">Coûts</span>
+                    <span className="text-[11px] font-semibold text-red-400">{taskCosts.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-[#1a1a1f] pt-1">
+                  <span className="text-[10px] text-zinc-500">Net</span>
+                  <span className={`text-[11px] font-bold ${(taskRevenue + taskCosts) >= 0 ? 'text-white' : 'text-red-400'}`}>
+                    {(taskRevenue + taskCosts).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -419,10 +444,23 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
 
                       {/* Content */}
                       <div className="flex-1 px-1.5 py-1 min-w-0">
-                        <p className={`text-[11px] font-semibold truncate leading-tight ${done ? 'line-through text-zinc-600' : 'text-zinc-100'}`}>
-                          {task.title}
-                        </p>
+                        <div className="flex items-center gap-0.5">
+                          {task.taskKind === 'deplacement' && <span className="text-[9px] leading-none">🚗</span>}
+                          {task.taskKind === 'evacuation' && <span className="text-[9px] leading-none">🗑️</span>}
+                          <p className={`text-[11px] font-semibold truncate leading-tight ${done ? 'line-through text-zinc-600' : 'text-zinc-100'}`}>
+                            {task.title}
+                          </p>
+                        </div>
                         {h > 32 && <p className="text-[9px] text-zinc-600 mt-0.5">{task.startTime}–{task.endTime}</p>}
+                        {h > 44 && task.clientId && (() => {
+                          const c = clients.find(cl => cl.id === task.clientId)
+                          return c ? <p className="text-[9px] text-zinc-500 truncate">{c.name}</p> : null
+                        })()}
+                        {task.montantTache !== undefined && h > 28 && (
+                          <p className={`text-[9px] font-bold ${task.montantTache >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {task.montantTache.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                          </p>
+                        )}
                       </div>
 
                       {/* Priority indicator */}
@@ -807,6 +845,14 @@ export function Planning() {
 
   const financeStats = useMemo(() => calcFinance(events, clients), [events, clients])
   const tasksDone = useMemo(() => tasks.filter(t => t.status === 'done').length, [tasks])
+  const taskRevenue = useMemo(() =>
+    tasks.reduce((s, t) => t.montantTache !== undefined && t.montantTache > 0 ? s + t.montantTache : s, 0),
+    [tasks]
+  )
+  const taskCosts = useMemo(() =>
+    tasks.reduce((s, t) => t.montantTache !== undefined && t.montantTache < 0 ? s + t.montantTache : s, 0),
+    [tasks]
+  )
 
   const PAYMENT_LABELS: Record<string, string> = { paid: 'Payé', unpaid: 'Impayé', pending: 'En attente', 'not-worked': 'Non travaillé' }
 
@@ -880,6 +926,8 @@ export function Planning() {
           stats={financeStats}
           tasksDone={tasksDone}
           tasksTotal={tasks.length}
+          taskRevenue={taskRevenue}
+          taskCosts={taskCosts}
           open={panelOpen}
           onToggle={() => setPanelOpen(o => !o)}
         />
