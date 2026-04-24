@@ -309,7 +309,7 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
       <div className="flex-1 overflow-x-auto">
         {/* Day headers */}
         <div className="grid sticky top-0 z-20 border-b border-[#1a1a1f]"
-          style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, background: '#0a0a0d' }}>
+          style={{ gridTemplateColumns: `repeat(${days.length}, minmax(80px, 1fr))`, background: '#0a0a0d' }}>
           {days.map((day, i) => {
             const ds = format(day, 'yyyy-MM-dd')
             const dayEvents = events.filter(e => e.date === ds && e.isBillable)
@@ -333,7 +333,7 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
         </div>
 
         {/* Grid body */}
-        <div className="grid relative" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, height: totalH }}>
+        <div className="grid relative" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(80px, 1fr))`, height: totalH }}>
           {days.map((day, di) => {
             const ds = format(day, 'yyyy-MM-dd')
             const dayTasks = tasks.filter(t => t.date === ds)
@@ -367,7 +367,7 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
                 {dayEvents.map(ev => {
                   const ps = PAYMENT_STYLE[ev.paymentStatus] ?? PAYMENT_STYLE['not-worked']
                   const top = toPx(toMin(ev.startTime ?? '09:00'))
-                  const h = Math.max(22, toPx(toMin(ev.endTime ?? '10:00')) - top)
+                  const h = Math.max(40, toPx(toMin(ev.endTime ?? '10:00')) - top)
                   const evRange = { s: toMin(ev.startTime ?? '09:00'), e: toMin(ev.endTime ?? '10:00') }
                   const overlapTasks = dayTasks.filter(t =>
                     t.status !== 'done' && overlaps(evRange, { s: toMin(t.startTime ?? '09:00'), e: toMin(t.endTime ?? '10:00') })
@@ -941,20 +941,21 @@ export function Planning() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/75 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm"
             onClick={closeModal}
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
               transition={{ duration: 0.2 }}
               role="dialog"
               aria-modal="true"
-              className="w-full max-w-md rounded-3xl p-6 shadow-2xl"
+              className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto"
               style={{ background: '#0e0e11', border: '1px solid #1e1e24' }}
               onClick={e => e.stopPropagation()}
             >
+              <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4 sm:hidden" />
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
                 {editingId ? (
