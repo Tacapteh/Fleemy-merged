@@ -10,3 +10,4 @@ frontend/.env.local
 *.egg-info/
 .venv/
 backend/serviceAccountKey.json
+.claude/settings.local.json
