@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, Trash2, FileText, Download, Send } from 'lucide-react'
+import { Plus, X, Trash2, FileText, Download, Send, ListChecks } from 'lucide-react'
 import { useDocuments } from '../hooks/useDocuments'
 import { useClients } from '../hooks/useClients'
+import { useTasks } from '../hooks/useTasks'
 import { useToast } from '../context/ToastContext'
 import { EmptyState } from './ui/EmptyState'
 import { apiClient } from '../services/api'
@@ -34,12 +35,61 @@ const EMPTY_ITEM: DocumentItem = { description: '', quantity: 1, unitPrice: 0, t
 export function Documents() {
   const { documents, addDocument, updateDocument, deleteDocument } = useDocuments()
   const { clients } = useClients()
+  const { tasks } = useTasks()
   const { toast } = useToast()
 
   const [showModal, setShowModal] = useState(false)
   const [editingDoc, setEditingDoc] = useState<FleemyDocument | null>(null)
   const [filterType, setFilterType] = useState<DocType | 'all'>('all')
   const [filterStatus, setFilterStatus] = useState<DocStatus | 'all'>('all')
+
+  // Import from tasks modal state
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importDocType, setImportDocType] = useState<DocType>('invoice')
+  const [importClientId, setImportClientId] = useState('')
+  const [importSelected, setImportSelected] = useState<Set<string>>(new Set())
+
+  const billableTaskGroups = useMemo(() => {
+    const map = new Map<string, { title: string; count: number; totalAmount: number }>()
+    for (const t of tasks) {
+      if (t.montantTache === undefined || t.montantTache <= 0) continue
+      const existing = map.get(t.title)
+      if (existing) {
+        existing.count++
+        existing.totalAmount += t.montantTache
+      } else {
+        map.set(t.title, { title: t.title, count: 1, totalAmount: t.montantTache })
+      }
+    }
+    return Array.from(map.values())
+  }, [tasks])
+
+  const handleImportCreate = async () => {
+    if (!importClientId || importSelected.size === 0) return
+    const client = clients.find(c => c.id === importClientId)
+    const items: DocumentItem[] = billableTaskGroups
+      .filter(g => importSelected.has(g.title))
+      .map(g => ({
+        description: g.title,
+        quantity: g.count,
+        unitPrice: parseFloat((g.totalAmount / g.count).toFixed(2)),
+        taxRate: 20,
+      }))
+    const totalAmount = items.reduce((s, it) => s + it.quantity * it.unitPrice * (1 + it.taxRate / 100), 0)
+    await addDocument({
+      type: importDocType,
+      clientId: importClientId,
+      clientName: client?.name ?? '',
+      items,
+      status: 'draft',
+      date: new Date().toISOString().split('T')[0],
+      totalAmount,
+    })
+    toast('Document importé depuis les tâches')
+    setShowImportModal(false)
+    setImportSelected(new Set())
+    setImportClientId('')
+  }
 
   const [form, setForm] = useState<{
     type: DocType
