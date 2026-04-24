@@ -794,35 +794,38 @@ export function Planning() {
   const saveTask = async () => {
     if (!tForm.title.trim()) { setTitleError(true); setTimeout(() => setTitleError(false), 600); return }
     const montantTache = calcMontantTache()
-    const data: Omit<TaskItem, 'id'> = {
+    // Build object without any undefined values — Firestore rejects them
+    const data: Record<string, unknown> = {
       type: 'task',
       title: tForm.title, date: tForm.date,
       startTime: tForm.startTime, endTime: tForm.endTime,
       priority: tForm.priority, status: tForm.status,
-      description: tForm.description || undefined,
-      icon: tForm.icon || undefined,
-      color: tForm.color || undefined,
       progress: 0,
       taskKind: tForm.taskKind,
-      clientId: tForm.clientId || undefined,
-      montantTache,
-      ...(tForm.taskKind === 'deplacement' && tForm.deplacementMode === 'km' ? {
-        prixKm: tForm.prixKm !== '' ? Number(tForm.prixKm) : undefined,
-        nbKm: tForm.nbKm !== '' ? Number(tForm.nbKm) : undefined,
-      } : {}),
-      ...(tForm.taskKind === 'deplacement' && tForm.deplacementMode === 'fixe' ? {
-        prixFixeDeplacement: tForm.prixFixeDeplacement !== '' ? Number(tForm.prixFixeDeplacement) : undefined,
-      } : {}),
-      ...(tForm.taskKind === 'evacuation' && tForm.evacuationMode === 'volume' ? {
-        prixM3: tForm.prixM3 !== '' ? Number(tForm.prixM3) : undefined,
-        nbM3: tForm.nbM3 !== '' ? Number(tForm.nbM3) : undefined,
-      } : {}),
-      ...(tForm.taskKind === 'evacuation' && tForm.evacuationMode === 'fixe' ? {
-        prixFixeEvacuation: tForm.prixFixeEvacuation !== '' ? Number(tForm.prixFixeEvacuation) : undefined,
-      } : {}),
     }
-    if (editingId) { await updateTask(editingId, data); toast('Tâche modifiée') }
-    else { await addTask(data); toast('Tâche créée') }
+    if (tForm.description) data.description = tForm.description
+    if (tForm.icon) data.icon = tForm.icon
+    if (tForm.color) data.color = tForm.color
+    if (tForm.clientId) data.clientId = tForm.clientId
+    if (montantTache !== undefined) data.montantTache = montantTache
+    if (tForm.taskKind === 'deplacement') {
+      if (tForm.deplacementMode === 'km') {
+        if (tForm.prixKm !== '') data.prixKm = Number(tForm.prixKm)
+        if (tForm.nbKm !== '') data.nbKm = Number(tForm.nbKm)
+      } else {
+        if (tForm.prixFixeDeplacement !== '') data.prixFixeDeplacement = Number(tForm.prixFixeDeplacement)
+      }
+    }
+    if (tForm.taskKind === 'evacuation') {
+      if (tForm.evacuationMode === 'volume') {
+        if (tForm.prixM3 !== '') data.prixM3 = Number(tForm.prixM3)
+        if (tForm.nbM3 !== '') data.nbM3 = Number(tForm.nbM3)
+      } else {
+        if (tForm.prixFixeEvacuation !== '') data.prixFixeEvacuation = Number(tForm.prixFixeEvacuation)
+      }
+    }
+    if (editingId) { await updateTask(editingId, data as Partial<TaskItem>); toast('Tâche modifiée') }
+    else { await addTask(data as Omit<TaskItem, 'id'>); toast('Tâche créée') }
     closeModal(); resetTForm()
   }
 
