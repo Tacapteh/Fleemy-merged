@@ -189,12 +189,20 @@ export function Documents() {
           <h1 className="text-2xl font-bold text-white">Documents</h1>
           <p className="text-zinc-400 text-sm">{documents.length} document{documents.length !== 1 ? 's' : ''}</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
-        >
-          <Plus size={16} /> Nouveau
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setImportSelected(new Set(billableTaskGroups.map(g => g.title))); setShowImportModal(true) }}
+            className="flex items-center gap-2 px-3 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-sm font-medium transition-colors border border-zinc-700"
+          >
+            <ListChecks size={15} /> Importer tâches
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
+          >
+            <Plus size={16} /> Nouveau
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -457,6 +465,106 @@ export function Documents() {
                 </button>
               </div>
             </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Import from tasks modal */}
+      <AnimatePresence>
+        {showImportModal && (
+          <motion.div
+            key="docs-import-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowImportModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              role="dialog"
+              aria-modal="true"
+              className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-md p-6 max-h-[85vh] flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                  <ListChecks size={16} className="text-emerald-400" /> Importer depuis les tâches
+                </h3>
+                <button onClick={() => setShowImportModal(false)} className="text-zinc-500 hover:text-white"><X size={18} /></button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="text-xs text-zinc-500 mb-1 block">Type</label>
+                  <select className="w-full bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:outline-none"
+                    value={importDocType} onChange={e => setImportDocType(e.target.value as DocType)}>
+                    <option value="invoice">Facture</option>
+                    <option value="quote">Devis</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-zinc-500 mb-1 block">Client *</label>
+                  <select className="w-full bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:outline-none"
+                    value={importClientId} onChange={e => setImportClientId(e.target.value)}>
+                    <option value="">Sélectionner…</option>
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {billableTaskGroups.length === 0 ? (
+                <p className="text-sm text-zinc-500 text-center py-6">Aucune tâche avec un montant défini.</p>
+              ) : (
+                <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-zinc-500">{billableTaskGroups.length} groupe{billableTaskGroups.length > 1 ? 's' : ''} de tâches</p>
+                    <button
+                      onClick={() => setImportSelected(
+                        importSelected.size === billableTaskGroups.length
+                          ? new Set()
+                          : new Set(billableTaskGroups.map(g => g.title))
+                      )}
+                      className="text-xs text-indigo-400 hover:text-indigo-300"
+                    >
+                      {importSelected.size === billableTaskGroups.length ? 'Désélectionner tout' : 'Tout sélectionner'}
+                    </button>
+                  </div>
+                  {billableTaskGroups.map(g => (
+                    <label key={g.title} className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800 hover:bg-zinc-700/80 cursor-pointer transition-colors">
+                      <input
+                        type="checkbox"
+                        className="accent-emerald-500 w-4 h-4 shrink-0"
+                        checked={importSelected.has(g.title)}
+                        onChange={e => {
+                          const next = new Set(importSelected)
+                          e.target.checked ? next.add(g.title) : next.delete(g.title)
+                          setImportSelected(next)
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">{g.title}</p>
+                        <p className="text-xs text-zinc-500">{g.count} tâche{g.count > 1 ? 's' : ''}</p>
+                      </div>
+                      <span className="text-sm font-semibold text-emerald-400 shrink-0">
+                        {g.totalAmount.toLocaleString('fr-FR')} €
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={handleImportCreate}
+                disabled={!importClientId || importSelected.size === 0}
+                className="mt-4 w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-colors"
+              >
+                Créer le document ({importSelected.size} ligne{importSelected.size > 1 ? 's' : ''})
+              </button>
             </motion.div>
           </motion.div>
         )}
