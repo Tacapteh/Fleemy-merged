@@ -3,8 +3,8 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import type { EventItem, TaskItem, Team } from '../types'
 
-export interface TeamEventItem extends EventItem { ownerName: string }
-export interface TeamTaskItem extends TaskItem { ownerName: string }
+export interface TeamEventItem extends EventItem { ownerName: string; ownerUid: string }
+export interface TeamTaskItem extends TaskItem { ownerName: string; ownerUid: string }
 
 const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
 
@@ -27,14 +27,14 @@ export function useTeamPlanningData(team: Team | null, myUid: string) {
     const unsubEvents = onSnapshot(
       query(collection(db, 'events'), where('userId', 'in', teammateUids)),
       snap => setTeamEvents(snap.docs.map(d => ({
-        id: d.id, ...d.data(), ownerName: getName(d.data().userId),
+        id: d.id, ...d.data(), ownerName: getName(d.data().userId), ownerUid: d.data().userId,
       } as TeamEventItem)))
     )
 
     const unsubTasks = onSnapshot(
       query(collection(db, 'tasks'), where('userId', 'in', teammateUids)),
       snap => setTeamTasks(snap.docs.map(d => ({
-        id: d.id, ...d.data(), ownerName: getName(d.data().userId),
+        id: d.id, ...d.data(), ownerName: getName(d.data().userId), ownerUid: d.data().userId,
       } as TeamTaskItem)))
     )
 
