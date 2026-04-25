@@ -831,6 +831,8 @@ export function Planning() {
   const { teamEvents, teamTasks } = useTeamPlanningData(team, user?.uid ?? '')
   const { toast } = useToast()
 
+  const [planningMode, setPlanningMode] = useState<'personal' | 'team'>('personal')
+
   const [view, setView] = useState<ViewMode>('week')
   const [current, setCurrent] = useState(new Date())
   const [modal, setModal] = useState(false)
@@ -1165,19 +1167,36 @@ export function Planning() {
 
   const PAYMENT_LABELS: Record<string, string> = { paid: 'Payé', unpaid: 'Impayé', pending: 'En attente', 'not-worked': 'Non travaillé' }
 
+  const activeTeamEvents = planningMode === 'team' ? teamEvents : []
+  const activeTeamTasks  = planningMode === 'team' ? teamTasks  : []
+
   return (
     <div className="flex flex-col h-full bg-[#0a0a0d]">
       {/* Header */}
       <div className="shrink-0 flex flex-col gap-2 px-4 py-3 border-b border-[#1a1a1f] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5 sm:gap-0">
         <div className="flex items-center justify-between sm:gap-4">
-          <h1 className="text-[15px] font-bold text-zinc-100 capitalize tracking-tight truncate max-w-[180px] sm:max-w-none" style={{ fontFamily: "'Syne', sans-serif" }}>{title}</h1>
-          <div className="flex bg-[#111114] rounded-lg p-0.5 border border-[#1a1a1f]">
-            {(['day', 'week', 'month'] as ViewMode[]).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === v ? 'bg-[#1e1e24] text-white shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}>
-                {v === 'day' ? 'Jour' : v === 'week' ? 'Sem.' : 'Mois'}
-              </button>
-            ))}
+          <h1 className="text-[15px] font-bold text-zinc-100 capitalize tracking-tight truncate max-w-[160px] sm:max-w-none" style={{ fontFamily: "'Syne', sans-serif" }}>{title}</h1>
+          <div className="flex items-center gap-2">
+            {team && (
+              <div className="flex bg-[#111114] rounded-lg p-0.5 border border-[#1a1a1f]">
+                <button onClick={() => setPlanningMode('personal')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${planningMode === 'personal' ? 'bg-[#1e1e24] text-emerald-400 shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                  Moi
+                </button>
+                <button onClick={() => setPlanningMode('team')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${planningMode === 'team' ? 'bg-[#1e1e24] text-indigo-400 shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                  Équipe
+                </button>
+              </div>
+            )}
+            <div className="flex bg-[#111114] rounded-lg p-0.5 border border-[#1a1a1f]">
+              {(['day', 'week', 'month'] as ViewMode[]).map(v => (
+                <button key={v} onClick={() => setView(v)}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${view === v ? 'bg-[#1e1e24] text-white shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                  {v === 'day' ? 'Jour' : v === 'week' ? 'Sem.' : 'Mois'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
@@ -1218,7 +1237,7 @@ export function Planning() {
               ) : (
                 <TimeGrid
                   days={days} tasks={tasks} events={events} clients={clients}
-                  teamEvents={teamEvents} teamTasks={teamTasks}
+                  teamEvents={activeTeamEvents} teamTasks={activeTeamTasks}
                   nowPx={nowPx} showNow={showNow}
                   onDayClick={(day, startMin, endMin) => openModal('event', format(day, 'yyyy-MM-dd'), startMin, endMin)}
                   onDeleteTask={id => { deleteTask(id); toast('Tâche supprimée') }}
