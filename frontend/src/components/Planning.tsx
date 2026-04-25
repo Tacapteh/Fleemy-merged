@@ -11,6 +11,9 @@ import { useTasks } from '../hooks/useTasks'
 import { useEvents } from '../hooks/useEvents'
 import { useClients } from '../hooks/useClients'
 import { useHistoricalEvents } from '../hooks/useHistoricalEvents'
+import { useTeam } from '../hooks/useTeam'
+import { useTeamPlanningData, type TeamEventItem, type TeamTaskItem } from '../hooks/useTeamPlanningData'
+import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../context/ToastContext'
 import {
   format, addDays, addWeeks, addMonths,
@@ -119,13 +122,14 @@ interface FinancePanelProps {
   historicalRevenue: number
   historicalCount: number
   tasks: TaskItem[]
+  events: EventItem[]
   clients: Client[]
   open: boolean
   onToggle: () => void
   viewMode: ViewMode
 }
 
-function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, historicalRevenue, historicalCount, tasks, clients, open, onToggle, viewMode }: FinancePanelProps) {
+function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, historicalRevenue, historicalCount, tasks, events, clients, open, onToggle, viewMode }: FinancePanelProps) {
   const progress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0
 
   // tasks is already filtered to the viewed date range by the parent
@@ -135,7 +139,17 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
       if (t.montantTache !== undefined && t.montantTache !== 0) {
         const key = t.title
         const existing = grouped.get(key)
-        const clientName = t.clientId ? clients.find(c => c.id === t.clientId)?.name : undefined
+        // First try task's own clientId, then look for a client via overlapping event
+        let clientName = t.clientId ? clients.find(c => c.id === t.clientId)?.name : undefined
+        if (!clientName) {
+          const tStart = toMin(t.startTime ?? '09:00')
+          const tEnd = toMin(t.endTime ?? '10:00')
+          const overlap = events.find(ev =>
+            ev.date === t.date && ev.clientId &&
+            overlaps({ s: tStart, e: tEnd }, { s: toMin(ev.startTime ?? '09:00'), e: toMin(ev.endTime ?? '10:00') })
+          )
+          clientName = overlap?.clientName || (overlap?.clientId ? clients.find(c => c.id === overlap.clientId)?.name : undefined)
+        }
         const entry = existing || { name: t.title, clientId: t.clientId, clientName, count: 0, totalAmount: 0, tasks: [] }
         entry.count += 1
         entry.totalAmount += t.montantTache
@@ -144,7 +158,7 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
       }
     })
     return Array.from(grouped.values()).sort((a, b) => b.totalAmount - a.totalAmount)
-  }, [tasks, clients])
+  }, [tasks, events, clients])
   
   const rows = [
     { label: 'Encaissé',   value: stats.paid,    color: '#10b981' },
@@ -211,13 +225,13 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
                 {tasksByName.length > 0 ? (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {tasksByName.map((item, idx) => (
-                      <div key={idx} className="p-3 rounded-xl border text-center" style={{ background: '#1a1a1f', borderColor: '#252530' }}>
-                        <div className="flex flex-col items-center justify-center gap-1 mb-1.5">
-                          <p className="text-xs font-bold text-white truncate w-full">{item.name}</p>
-                          {item.clientName && <p className="text-[9px] text-zinc-500 truncate w-full">{item.clientName}</p>}
-                          {item.count > 1 && <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded bg-[#0a0a0d]">x{item.count}</span>}
+                      <div key={idx} className="px-3 py-2.5 rounded-xl border flex items-center justify-between gap-2" style={{ background: '#1a1a1f', borderColor: '#252530' }}>
+                        <div className="flex flex-col min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{item.name}</p>
+                          {item.clientName && <p className="text-[9px] text-zinc-500 truncate">{item.clientName}</p>}
+                          {item.count > 1 && <span className="text-[10px] text-zinc-500">×{item.count}</span>}
                         </div>
-                        <p className={`text-xs font-bold ${item.totalAmount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <p className={`text-xs font-bold shrink-0 ${item.totalAmount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           {item.totalAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                         </p>
                       </div>
@@ -350,6 +364,8 @@ interface GridProps {
   tasks: TaskItem[]
   events: EventItem[]
   clients: Client[]
+  teamEvents: TeamEventItem[]
+  teamTasks: TeamTaskItem[]
   nowPx: number
   showNow: boolean
   onDayClick: (day: Date, minutes: number) => void
@@ -364,7 +380,7 @@ interface GridProps {
   onHideTooltip: () => void
 }
 
-function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, onDeleteTask, onCompleteTask, onDeleteEvent, onDragStart, onDrop, onEditTask, onEditEvent, onShowTooltip, onHideTooltip }: GridProps) {
+function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, showNow, onDayClick, onDeleteTask, onCompleteTask, onDeleteEvent, onDragStart, onDrop, onEditTask, onEditEvent, onShowTooltip, onHideTooltip }: GridProps) {
   const totalH = HOURS.length * HOUR_H
   const isToday = (d: Date) => isSameDay(d, new Date())
 
@@ -414,6 +430,8 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
             const ds = format(day, 'yyyy-MM-dd')
             const dayTasks = tasks.filter(t => t.date === ds)
             const dayEvents = events.filter(e => e.date === ds)
+            const dayTeamEvents = teamEvents.filter(e => e.date === ds)
+            const dayTeamTasks = teamTasks.filter(t => t.date === ds)
 
             return (
               <div key={di}
@@ -473,7 +491,13 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
                               const TaskIconCmp = t.icon ? ICON_MAP[t.icon] : null
                               const ic = t.color || '#6366f1'
                               return (
-                                <div key={t.id} className="w-6 h-6 rounded-lg flex items-center justify-center transition-transform hover:scale-110" style={{ background: ic + '25', border: `2px solid ${ic}` }}>
+                                <div key={t.id}
+                                  className="w-6 h-6 rounded-lg flex items-center justify-center transition-transform hover:scale-110 cursor-pointer z-20 relative"
+                                  style={{ background: ic + '25', border: `2px solid ${ic}` }}
+                                  onMouseEnter={e => { e.stopPropagation(); onShowTooltip(t, 'task', e.clientX, e.clientY) }}
+                                  onMouseLeave={e => { e.stopPropagation(); onHideTooltip() }}
+                                  onClick={e => { e.stopPropagation(); onEditTask(t) }}
+                                >
                                   {TaskIconCmp ? <TaskIconCmp size={12} style={{ color: ic }} /> : <Layers size={12} style={{ color: ic }} />}
                                 </div>
                               )
@@ -561,6 +585,45 @@ function TimeGrid({ days, tasks, events, clients, nowPx, showNow, onDayClick, on
                           className="w-4 h-4 rounded bg-black/40 flex items-center justify-center text-zinc-400">
                           <X size={7} />
                         </button>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Team event pills (read-only) */}
+                {dayTeamEvents.map(ev => {
+                  const top = toPx(toMin(ev.startTime ?? '09:00'))
+                  const h = Math.max(24, toPx(toMin(ev.endTime ?? '10:00')) - top)
+                  return (
+                    <div key={ev.id}
+                      className="absolute left-1 right-1 rounded-xl overflow-hidden select-none z-[5] opacity-50 pointer-events-auto cursor-default"
+                      style={{ top: top + 1, height: h - 2, background: '#3f3f4618', border: '1.5px dashed #3f3f46', borderLeft: '3px solid #6366f1' }}
+                      onMouseEnter={e => onShowTooltip(ev, 'event', e.clientX, e.clientY)}
+                      onMouseLeave={onHideTooltip}
+                    >
+                      <div className="px-2 py-1">
+                        <p className="text-[10px] font-semibold truncate text-zinc-400">{ev.title}</p>
+                        {h > 28 && <p className="text-[8px] text-zinc-600">{ev.ownerName}</p>}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Team task pills (read-only) */}
+                {dayTeamTasks.map(task => {
+                  const top = toPx(toMin(task.startTime ?? '09:00'))
+                  const h = Math.max(18, toPx(toMin(task.endTime ?? '10:00')) - top)
+                  const tc = task.color || '#6366f1'
+                  return (
+                    <div key={task.id}
+                      className="absolute left-1 right-1 rounded-xl overflow-hidden select-none z-[4] opacity-40 pointer-events-auto cursor-default"
+                      style={{ top: top + 1, height: h - 2, background: tc + '0a', border: `1px dashed ${tc}50`, borderLeft: `2px solid ${tc}80` }}
+                      onMouseEnter={e => onShowTooltip(task, 'task', e.clientX, e.clientY)}
+                      onMouseLeave={onHideTooltip}
+                    >
+                      <div className="px-2 py-0.5">
+                        <p className="text-[10px] font-medium truncate" style={{ color: tc }}>{task.title}</p>
+                        {h > 24 && <p className="text-[8px] text-zinc-600">{task.ownerName}</p>}
                       </div>
                     </div>
                   )
@@ -704,10 +767,13 @@ function MonthView({ days, refDate, tasks, events, historicalEvents, onEditTask,
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function Planning() {
+  const { user } = useAuth()
   const { tasks, addTask, updateTask, deleteTask } = useTasks()
   const { events, addEvent, updateEvent, deleteEvent } = useEvents()
   const { clients } = useClients()
   const { historicalEvents } = useHistoricalEvents()
+  const { team } = useTeam()
+  const { teamEvents, teamTasks } = useTeamPlanningData(team, user?.uid ?? '')
   const { toast } = useToast()
 
   const [view, setView] = useState<ViewMode>('week')
@@ -1079,6 +1145,7 @@ export function Planning() {
               ) : (
                 <TimeGrid
                   days={days} tasks={tasks} events={events} clients={clients}
+                  teamEvents={teamEvents} teamTasks={teamTasks}
                   nowPx={nowPx} showNow={showNow}
                   onDayClick={(day, min) => openModal('event', format(day, 'yyyy-MM-dd'), min)}
                   onDeleteTask={id => { deleteTask(id); toast('Tâche supprimée') }}
