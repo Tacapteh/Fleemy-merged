@@ -37,6 +37,10 @@ function pxToMin(px: number) {
   const raw = (px / HOUR_H) * 60 + DAY_START * 60
   return Math.max(DAY_START * 60, Math.min((DAY_END - 1) * 60, Math.round(raw / 60) * 60))
 }
+function pxToMin30(px: number) {
+  const raw = (px / HOUR_H) * 60 + DAY_START * 60
+  return Math.max(DAY_START * 60, Math.min((DAY_END - 1) * 60, Math.round(raw / 30) * 30))
+}
 function toTimeStr(min: number) {
   return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
 }
@@ -88,9 +92,11 @@ function calcFinance(events: EventItem[], clients: Client[]) {
   let paid = 0, pending = 0, unpaid = 0
   events.forEach(ev => {
     if (!ev.isBillable) return
-    let amount: number
+    let amount = 0
     if (ev.overridePrice !== undefined) { amount = ev.overridePrice }
-    else {
+    else if (ev.rateSegments && ev.rateSegments.length > 0) {
+      amount = ev.rateSegments.reduce((sum, seg) => sum + (toMin(seg.endTime) - toMin(seg.startTime)) / 60 * seg.hourlyRate, 0)
+    } else {
       const client = clients.find(c => c.id === ev.clientId)
       const rate = ev.hourlyRate ?? client?.hourlyRate ?? 0
       const durationH = (toMin(ev.endTime ?? '10:00') - toMin(ev.startTime ?? '09:00')) / 60
@@ -106,6 +112,9 @@ function calcFinance(events: EventItem[], clients: Client[]) {
 function eventRevenue(ev: EventItem, clients: Client[]) {
   if (!ev.isBillable) return 0
   if (ev.overridePrice !== undefined) return ev.overridePrice
+  if (ev.rateSegments && ev.rateSegments.length > 0) {
+    return ev.rateSegments.reduce((sum, seg) => sum + (toMin(seg.endTime) - toMin(seg.startTime)) / 60 * seg.hourlyRate, 0)
+  }
   const client = clients.find(c => c.id === ev.clientId)
   const rate = ev.hourlyRate ?? client?.hourlyRate ?? 0
   const durationH = (toMin(ev.endTime ?? '10:00') - toMin(ev.startTime ?? '09:00')) / 60
@@ -368,7 +377,7 @@ interface GridProps {
   teamTasks: TeamTaskItem[]
   nowPx: number
   showNow: boolean
-  onDayClick: (day: Date, minutes: number) => void
+  onDayClick: (day: Date, startMin: number, endMin?: number) => void
   onDeleteTask: (id: string) => void
   onCompleteTask: (id: string) => void
   onDeleteEvent: (id: string) => void
@@ -383,6 +392,38 @@ interface GridProps {
 function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, showNow, onDayClick, onDeleteTask, onCompleteTask, onDeleteEvent, onDragStart, onDrop, onEditTask, onEditEvent, onShowTooltip, onHideTooltip }: GridProps) {
   const totalH = HOURS.length * HOUR_H
   const isToday = (d: Date) => isSameDay(d, new Date())
+
+  const dragSel = useRef<{ day: Date; dayIdx: number; startClientY: number; colTop: number } | null>(null)
+  const [selVis, setSelVis] = useState<{ dayIdx: number; top: number; h: number } | null>(null)
+  const onDayClickRef = useRef(onDayClick)
+  useEffect(() => { onDayClickRef.current = onDayClick }, [onDayClick])
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragSel.current) return
+      const { startClientY, colTop, dayIdx } = dragSel.current
+      const curPx = e.clientY - colTop
+      const startPx = startClientY - colTop
+      setSelVis({ dayIdx, top: Math.min(startPx, curPx), h: Math.max(2, Math.abs(curPx - startPx)) })
+    }
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!dragSel.current) return
+      const { day, startClientY, colTop } = dragSel.current
+      const curPx = e.clientY - colTop
+      const startPx = startClientY - colTop
+      dragSel.current = null; setSelVis(null)
+      if (Math.abs(curPx - startPx) < 8) {
+        onDayClickRef.current(day, pxToMin(startPx))
+      } else {
+        const minA = pxToMin30(Math.min(startPx, curPx))
+        const minB = Math.max(minA + 30, pxToMin30(Math.max(startPx, curPx)))
+        onDayClickRef.current(day, minA, minB)
+      }
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleMouseUp) }
+  }, [])
 
   return (
     <div className="flex" style={{ minHeight: totalH + 48 }}>
@@ -439,7 +480,13 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                 style={{ height: totalH }}
                 onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
                 onDrop={e => onDrop(e, day)}
-                onClick={e => { const rect = e.currentTarget.getBoundingClientRect(); onDayClick(day, pxToMin(e.clientY - rect.top)) }}
+                onMouseDown={e => {
+                  if ((e.target as HTMLElement).closest('[data-item]')) return
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  dragSel.current = { day, dayIdx: di, startClientY: e.clientY, colTop: rect.top }
+                  setSelVis({ dayIdx: di, top: e.clientY - rect.top, h: 0 })
+                  e.preventDefault()
+                }}
               >
                 {/* Grid lines */}
                 {HOURS.map(h => (
@@ -457,6 +504,11 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                   </div>
                 )}
 
+                {/* Drag selection overlay */}
+                {selVis && selVis.dayIdx === di && selVis.h > 6 && (
+                  <div className="absolute left-0 right-0 pointer-events-none z-[25] rounded-lg" style={{ top: selVis.top, height: selVis.h, background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.5)' }} />
+                )}
+
                 {/* Event pills */}
                 {dayEvents.map(ev => {
                   const ps = PAYMENT_STYLE[ev.paymentStatus] ?? PAYMENT_STYLE['not-worked']
@@ -469,7 +521,7 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                   const rev = eventRevenue(ev, clients)
 
                   return (
-                    <div key={ev.id} draggable
+                    <div key={ev.id} draggable data-item="true"
                       onDragStart={e => { e.stopPropagation(); onDragStart(e, ev) }}
                       onClick={e => { e.stopPropagation(); onEditEvent(ev) }}
                       onMouseEnter={e => onShowTooltip(ev, 'event', e.clientX, e.clientY)}
@@ -529,7 +581,7 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                   const TaskIconCmp = task.icon ? ICON_MAP[task.icon] : null
 
                   return (
-                    <div key={task.id} draggable={!done}
+                    <div key={task.id} draggable={!done} data-item="true"
                       onDragStart={e => { e.stopPropagation(); if (!done) onDragStart(e, task) }}
                       onClick={e => { e.stopPropagation(); onEditTask(task) }}
                       onMouseEnter={e => onShowTooltip(task, 'task', e.clientX, e.clientY)}
@@ -595,7 +647,7 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                   const top = toPx(toMin(ev.startTime ?? '09:00'))
                   const h = Math.max(24, toPx(toMin(ev.endTime ?? '10:00')) - top)
                   return (
-                    <div key={ev.id}
+                    <div key={ev.id} data-item="true"
                       className="absolute left-1 right-1 rounded-xl overflow-hidden select-none z-[5] opacity-50 pointer-events-auto cursor-default"
                       style={{ top: top + 1, height: h - 2, background: '#3f3f4618', border: '1.5px dashed #3f3f46', borderLeft: '3px solid #6366f1' }}
                       onMouseEnter={e => onShowTooltip(ev, 'event', e.clientX, e.clientY)}
@@ -615,7 +667,7 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                   const h = Math.max(18, toPx(toMin(task.endTime ?? '10:00')) - top)
                   const tc = task.color || '#6366f1'
                   return (
-                    <div key={task.id}
+                    <div key={task.id} data-item="true"
                       className="absolute left-1 right-1 rounded-xl overflow-hidden select-none z-[4] opacity-40 pointer-events-auto cursor-default"
                       style={{ top: top + 1, height: h - 2, background: tc + '0a', border: `1px dashed ${tc}50`, borderLeft: `2px solid ${tc}80` }}
                       onMouseEnter={e => onShowTooltip(task, 'task', e.clientX, e.clientY)}
@@ -834,6 +886,8 @@ export function Planning() {
     paymentStatus: 'unpaid' as EventItem['paymentStatus'],
     useCustomRate: false,
     hourlyRate: '' as number | '',
+    useSegmentRates: false,
+    segments: [] as { startTime: string; endTime: string; hourlyRate: number | '' }[],
   })
 
   const resetTForm = () => setTForm({
@@ -844,7 +898,7 @@ export function Planning() {
     prixM3: '', nbM3: '', prixFixeEvacuation: '',
     deplacementMode: 'km', evacuationMode: 'volume',
   })
-  const resetEForm = () => setEForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid', useCustomRate: false, hourlyRate: '' })
+  const resetEForm = () => setEForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid', useCustomRate: false, hourlyRate: '', useSegmentRates: false, segments: [] })
 
   const days = useMemo(() => {
     if (view === 'day') return [current]
@@ -859,13 +913,13 @@ export function Planning() {
     else setCurrent(d => addMonths(d, dir))
   }
 
-  const openModal = (type: 'task' | 'event', date?: string, startMin?: number) => {
+  const openModal = (type: 'task' | 'event', date?: string, startMin?: number, endMin?: number) => {
     const d = date ?? format(new Date(), 'yyyy-MM-dd')
-    const st = startMin ? toTimeStr(startMin) : '09:00'
-    const et = startMin ? toTimeStr(Math.min(startMin + 60, (DAY_END - 1) * 60)) : '10:00'
+    const st = startMin !== undefined ? toTimeStr(startMin) : '09:00'
+    const et = endMin !== undefined ? toTimeStr(Math.min(endMin, (DAY_END - 1) * 60)) : (startMin !== undefined ? toTimeStr(Math.min(startMin + 60, (DAY_END - 1) * 60)) : '10:00')
     setEditingId(null); setMType(type)
     if (type === 'task') setTForm(f => ({ ...f, date: d, startTime: st, endTime: et, title: '', description: '', icon: '', color: '' }))
-    else setEForm(f => ({ ...f, date: d, startTime: st, endTime: et, title: '' }))
+    else setEForm(f => ({ ...f, date: d, startTime: st, endTime: et, title: '', useSegmentRates: false, segments: [] }))
     setModal(true)
   }
 
@@ -898,8 +952,10 @@ export function Planning() {
       startTime: ev.startTime ?? '09:00', endTime: ev.endTime ?? '10:00',
       clientId: ev.clientId ?? '', isBillable: ev.isBillable ?? true,
       paymentStatus: ev.paymentStatus,
-      useCustomRate: ev.hourlyRate !== undefined,
+      useCustomRate: ev.hourlyRate !== undefined && !(ev.rateSegments?.length),
       hourlyRate: ev.hourlyRate ?? '',
+      useSegmentRates: !!(ev.rateSegments?.length),
+      segments: ev.rateSegments?.map(s => ({ startTime: s.startTime, endTime: s.endTime, hourlyRate: s.hourlyRate })) ?? [],
     })
     setModal(true)
   }
@@ -985,6 +1041,15 @@ export function Planning() {
     closeModal(); resetTForm()
   }
 
+  const generateSegments = (startTime: string, endTime: string, defaultRate: number | '') => {
+    const startM = toMin(startTime), endM = toMin(endTime)
+    const segs: { startTime: string; endTime: string; hourlyRate: number | '' }[] = []
+    for (let m = startM; m < endM; m += 60) {
+      segs.push({ startTime: toTimeStr(m), endTime: toTimeStr(Math.min(m + 60, endM)), hourlyRate: defaultRate })
+    }
+    return segs
+  }
+
   const saveEvent = async () => {
     if (!eForm.title.trim()) { setTitleError(true); setTimeout(() => setTitleError(false), 600); return }
     
@@ -1014,6 +1079,11 @@ export function Planning() {
       if (client?.name) base.clientName = client.name
     }
     if (eForm.useCustomRate && eForm.hourlyRate !== '') base.hourlyRate = Number(eForm.hourlyRate)
+    if (eForm.useSegmentRates && eForm.segments.length > 0) {
+      base.rateSegments = eForm.segments.filter(s => s.hourlyRate !== '').map(s => ({
+        startTime: s.startTime, endTime: s.endTime, hourlyRate: Number(s.hourlyRate)
+      }))
+    }
     if (editingId) { await updateEvent(editingId, base as Partial<EventItem>); toast('Créneau modifié') }
     else { await addEvent(base as Omit<EventItem, 'id'>); toast('Créneau créé') }
     closeModal(); resetEForm()
@@ -1147,7 +1217,7 @@ export function Planning() {
                   days={days} tasks={tasks} events={events} clients={clients}
                   teamEvents={teamEvents} teamTasks={teamTasks}
                   nowPx={nowPx} showNow={showNow}
-                  onDayClick={(day, min) => openModal('event', format(day, 'yyyy-MM-dd'), min)}
+                  onDayClick={(day, startMin, endMin) => openModal('event', format(day, 'yyyy-MM-dd'), startMin, endMin)}
                   onDeleteTask={id => { deleteTask(id); toast('Tâche supprimée') }}
                   onCompleteTask={id => { updateTask(id, { status: 'done' }); toast('Terminée ✓') }}
                   onDeleteEvent={id => { deleteEvent(id); toast('Créneau supprimé') }}
@@ -1469,13 +1539,17 @@ export function Planning() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-zinc-500">Taux horaire</span>
                         <div className="flex bg-[#0a0a0d] rounded-lg p-0.5 border border-[#1e1e24]">
-                          <button onClick={() => setEForm(f => ({ ...f, useCustomRate: false, hourlyRate: '' }))}
-                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${!eForm.useCustomRate ? 'bg-[#1e1e24] text-white' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                          <button onClick={() => setEForm(f => ({ ...f, useCustomRate: false, useSegmentRates: false, hourlyRate: '' }))}
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${!eForm.useCustomRate && !eForm.useSegmentRates ? 'bg-[#1e1e24] text-white' : 'text-zinc-600 hover:text-zinc-400'}`}>
                             Client
                           </button>
-                          <button onClick={() => setEForm(f => ({ ...f, useCustomRate: true }))}
+                          <button onClick={() => setEForm(f => ({ ...f, useCustomRate: true, useSegmentRates: false }))}
                             className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${eForm.useCustomRate ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
                             Personnalisé
+                          </button>
+                          <button onClick={() => { const segs = generateSegments(eForm.startTime, eForm.endTime, eForm.hourlyRate); setEForm(f => ({ ...f, useCustomRate: false, useSegmentRates: true, segments: segs })) }}
+                            className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${eForm.useSegmentRates ? 'bg-indigo-500/20 text-indigo-400' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                            Par heure
                           </button>
                         </div>
                       </div>
@@ -1486,6 +1560,23 @@ export function Planning() {
                             value={eForm.hourlyRate}
                             onChange={e => setEForm(f => ({ ...f, hourlyRate: e.target.value === '' ? '' : Number(e.target.value) }))} />
                           <span className="text-xs text-zinc-600 shrink-0">€/h</span>
+                        </div>
+                      )}
+                      {eForm.useSegmentRates && eForm.segments.length > 0 && (
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                          {eForm.segments.map((seg, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <span className="text-xs text-zinc-500 font-mono w-24 shrink-0">{seg.startTime}–{seg.endTime}</span>
+                              <input type="number" min={0} step={0.5} placeholder="0"
+                                className="flex-1 bg-[#0a0a0d] border border-[#1e1e24] rounded-lg px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500/40 transition-all"
+                                value={seg.hourlyRate}
+                                onChange={e => setEForm(f => ({ ...f, segments: f.segments.map((s, i) => i === idx ? { ...s, hourlyRate: e.target.value === '' ? '' : Number(e.target.value) } : s) }))} />
+                              <span className="text-xs text-zinc-600 shrink-0">€/h</span>
+                            </div>
+                          ))}
+                          <p className="text-[10px] text-zinc-600 pt-0.5">
+                            Total : {eForm.segments.reduce((sum, s) => s.hourlyRate === '' ? sum : sum + (toMin(s.endTime) - toMin(s.startTime)) / 60 * Number(s.hourlyRate), 0).toLocaleString('fr-FR')} €
+                          </p>
                         </div>
                       )}
                     </div>

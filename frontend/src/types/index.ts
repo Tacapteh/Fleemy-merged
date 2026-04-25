@@ -26,6 +26,12 @@ export interface CalendarItem {
   type: 'event' | 'task' | 'recurring'
 }
 
+export interface RateSegment {
+  startTime: string
+  endTime: string
+  hourlyRate: number
+}
+
 export interface EventItem extends CalendarItem {
   type: 'event'
   clientId?: string
@@ -36,6 +42,7 @@ export interface EventItem extends CalendarItem {
   isBillable: boolean
   overridePrice?: number
   hourlyRate?: number // overrides client rate when set
+  rateSegments?: RateSegment[]
 }
 
 export interface RecurringTaskTemplate {
