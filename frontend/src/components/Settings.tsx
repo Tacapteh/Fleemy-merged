@@ -6,8 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTeam } from '../hooks/useTeam'
 import { useHistoricalEvents } from '../hooks/useHistoricalEvents'
 import { useToast } from '../context/ToastContext'
-import { parseWithAI, aiRowToEvent, type AIImportedRow } from '../utils/importPlanning'
-import { fileToText } from '../utils/fileToText'
+import { parseExcelAllSheets, aiRowToEvent, type AIImportedRow } from '../utils/importPlanning'
 import type { AppSettings } from '../types'
 
 const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
@@ -144,11 +143,13 @@ export function Settings() {
     setAnalyzing(true)
     setImportRows([])
     try {
-      const content = await fileToText(file)
-      if (!content.trim()) { toast('Fichier vide ou format non supporté', 'error'); return }
-      const rows = await parseWithAI(content, file.name)
+      const { rows, sheetsProcessed } = await parseExcelAllSheets(file)
+      if (sheetsProcessed === 0) { toast('Fichier vide ou format non supporté', 'error'); return }
       if (rows.length === 0) toast('Impossible de lire ce fichier automatiquement. Vérifie le format.', 'error')
-      else setImportRows(rows)
+      else {
+        setImportRows(rows)
+        if (sheetsProcessed > 1) toast(`${sheetsProcessed} onglets lus — ${rows.length} entrées trouvées`)
+      }
     } catch (err) {
       const msg = (err as Error).message
       if (msg === 'timeout') toast("L'analyse prend du temps, réessaie", 'error')
