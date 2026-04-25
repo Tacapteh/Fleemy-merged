@@ -1169,6 +1169,7 @@ export function Planning() {
           historicalRevenue={historicalRevenue}
           historicalCount={historicalCount}
           tasks={viewedTasks}
+          events={viewedEvents}
           clients={clients}
           viewMode={view}
           open={panelOpen}
