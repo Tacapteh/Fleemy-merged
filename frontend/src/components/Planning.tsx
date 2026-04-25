@@ -304,9 +304,12 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
             {tasksByName.length > 0 && (
               <div className="max-h-24 overflow-y-auto space-y-1">
                 {tasksByName.slice(0, 3).map((item, idx) => (
-                  <div key={idx} className="text-[8px] flex items-center justify-between gap-1 p-1.5 rounded bg-[#1a1a1f]">
-                    <span className="truncate text-zinc-400">{item.name}{item.count > 1 ? ` (x${item.count})` : ''}</span>
-                    <span className={item.totalAmount > 0 ? 'text-emerald-400' : 'text-red-400'} style={{ fontWeight: 'bold' }}>
+                  <div key={idx} className="flex items-center justify-between gap-1 p-1.5 rounded bg-[#1a1a1f]">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[8px] truncate text-zinc-400">{item.name}{item.count > 1 ? ` (x${item.count})` : ''}</span>
+                      {item.clientName && <span className="text-[7px] text-zinc-600 truncate">{item.clientName}</span>}
+                    </div>
+                    <span className={`text-[8px] font-bold shrink-0 ${item.totalAmount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                       {item.totalAmount.toLocaleString('fr-FR')}€
                     </span>
                   </div>
