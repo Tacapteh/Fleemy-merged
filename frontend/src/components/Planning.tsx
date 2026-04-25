@@ -127,44 +127,11 @@ interface FinancePanelProps {
 
 function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, historicalRevenue, historicalCount, tasks, clients, open, onToggle, viewMode }: FinancePanelProps) {
   const progress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0
-  
-  // Filter tasks by view mode
-  const now = new Date()
-  const filteredTasks = useMemo(() => {
-    if (viewMode === 'day') return tasks.filter(t => t.date === format(now, 'yyyy-MM-dd'))
-    if (viewMode === 'week') {
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 })
-      const weekEnd = addDays(weekStart, 6)
-      return tasks.filter(t => {
-        const tDate = new Date(t.date)
-        return tDate >= weekStart && tDate <= weekEnd
-      })
-    }
-    const monthStart = startOfMonth(now)
-    const monthEnd = endOfMonth(now)
-    return tasks.filter(t => {
-      const tDate = new Date(t.date)
-      return tDate >= monthStart && tDate <= monthEnd
-    })
-  }, [viewMode, tasks])
-  
-  // Filter stats by view mode
-  const filteredStats = useMemo(() => {
-    let paid = 0, pending = 0, unpaid = 0
-    filteredTasks.forEach(t => {
-      if (t.montantTache !== undefined && t.montantTache > 0) {
-        if (t.paymentStatus === 'paid') paid += t.montantTache
-        else if (t.paymentStatus === 'pending') pending += t.montantTache
-        else if (t.paymentStatus === 'unpaid') unpaid += t.montantTache
-      }
-    })
-    return { paid, pending, unpaid, total: paid + pending + unpaid }
-  }, [filteredTasks])
-  
-  // Group tasks by name and calculate totals
+
+  // tasks is already filtered to the viewed date range by the parent
   const tasksByName = useMemo(() => {
     const grouped = new Map<string, { name: string; clientId?: string; clientName?: string; count: number; totalAmount: number; tasks: TaskItem[] }>()
-    filteredTasks.forEach(t => {
+    tasks.forEach(t => {
       if (t.montantTache !== undefined && t.montantTache !== 0) {
         const key = t.title
         const existing = grouped.get(key)
@@ -177,7 +144,7 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
       }
     })
     return Array.from(grouped.values()).sort((a, b) => b.totalAmount - a.totalAmount)
-  }, [filteredTasks, clients])
+  }, [tasks, clients])
   
   const rows = [
     { label: 'Encaissé',   value: stats.paid,    color: '#10b981' },
@@ -214,17 +181,14 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {rows.map(({ label, value, color }) => {
-                const filteredValue = filteredStats[label.toLowerCase() === 'encaissé' ? 'paid' : label.toLowerCase() === 'en attente' ? 'pending' : 'unpaid']
-                return (
-                  <div key={label} className="p-3 rounded-xl border text-center flex flex-col items-center justify-center" style={{ background: color + '08', borderColor: color + '30' }}>
-                    <p className="text-xs font-bold" style={{ color }}>
-                      {(filteredValue / 1000).toFixed(1)}k
-                    </p>
-                    <p className="text-[8px] text-zinc-500 mt-1">{label}</p>
-                  </div>
-                )
-              })}
+              {rows.map(({ label, value, color }) => (
+                <div key={label} className="p-3 rounded-xl border text-center flex flex-col items-center justify-center" style={{ background: color + '08', borderColor: color + '30' }}>
+                  <p className="text-xs font-bold" style={{ color }}>
+                    {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString('fr-FR')}
+                  </p>
+                  <p className="text-[8px] text-zinc-500 mt-1">{label}</p>
+                </div>
+              ))}
             </div>
             <div className="border-t border-[#1a1a1f] pt-3">
               <div className="flex items-center justify-between mb-2">
@@ -1034,15 +998,25 @@ export function Planning() {
     return format(current, 'MMMM yyyy', { locale: fr })
   }, [view, current])
 
-  const financeStats = useMemo(() => calcFinance(events, clients), [events, clients])
-  const tasksDone = useMemo(() => tasks.filter(t => t.status === 'done').length, [tasks])
+  const viewedDates = useMemo(() => {
+    if (view === 'month') {
+      return eachDayOfInterval({ start: startOfMonth(current), end: endOfMonth(current) }).map(d => format(d, 'yyyy-MM-dd'))
+    }
+    return days.map(d => format(d, 'yyyy-MM-dd'))
+  }, [view, current, days])
+
+  const viewedEvents = useMemo(() => events.filter(e => viewedDates.includes(e.date)), [events, viewedDates])
+  const viewedTasks = useMemo(() => tasks.filter(t => viewedDates.includes(t.date)), [tasks, viewedDates])
+
+  const financeStats = useMemo(() => calcFinance(viewedEvents, clients), [viewedEvents, clients])
+  const tasksDone = useMemo(() => viewedTasks.filter(t => t.status === 'done').length, [viewedTasks])
   const taskRevenue = useMemo(() =>
-    tasks.reduce((s, t) => t.montantTache !== undefined && t.montantTache > 0 ? s + t.montantTache : s, 0),
-    [tasks]
+    viewedTasks.reduce((s, t) => t.montantTache !== undefined && t.montantTache > 0 ? s + t.montantTache : s, 0),
+    [viewedTasks]
   )
   const taskCosts = useMemo(() =>
-    tasks.reduce((s, t) => t.montantTache !== undefined && t.montantTache < 0 ? s + t.montantTache : s, 0),
-    [tasks]
+    viewedTasks.reduce((s, t) => t.montantTache !== undefined && t.montantTache < 0 ? s + t.montantTache : s, 0),
+    [viewedTasks]
   )
   const historicalRevenue = useMemo(() =>
     historicalEvents.reduce((s, e) => e.overridePrice ? s + e.overridePrice : s, 0),
@@ -1122,12 +1096,12 @@ export function Planning() {
         <FinancePanelInner
           stats={financeStats}
           tasksDone={tasksDone}
-          tasksTotal={tasks.length}
+          tasksTotal={viewedTasks.length}
           taskRevenue={taskRevenue}
           taskCosts={taskCosts}
           historicalRevenue={historicalRevenue}
           historicalCount={historicalCount}
-          tasks={tasks}
+          tasks={viewedTasks}
           clients={clients}
           viewMode={view}
           open={panelOpen}
