@@ -6,8 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTeam } from '../hooks/useTeam'
 import { useHistoricalEvents } from '../hooks/useHistoricalEvents'
 import { useToast } from '../context/ToastContext'
-import { parseWithAI, aiRowToEvent, type AIImportedRow } from '../utils/importPlanning'
-import { fileToText } from '../utils/fileToText'
+import { parseExcelAllSheets, aiRowToEvent, type AIImportedRow } from '../utils/importPlanning'
 import type { AppSettings } from '../types'
 
 const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
@@ -80,7 +79,7 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 export function Settings() {
   const { user } = useAuth()
-  const { team, loading: tl, error: te, createTeam, joinTeam, leaveTeam } = useTeam()
+  const { team, loading: tl, error: te, soloMode, setSoloMode, createTeam, joinTeam, leaveTeam } = useTeam()
   const { historicalEvents, addHistoricalEvents, clearHistoricalEvents } = useHistoricalEvents()
   const { toast } = useToast()
 
@@ -144,11 +143,13 @@ export function Settings() {
     setAnalyzing(true)
     setImportRows([])
     try {
-      const content = await fileToText(file)
-      if (!content.trim()) { toast('Fichier vide ou format non supporté', 'error'); return }
-      const rows = await parseWithAI(content, file.name)
+      const { rows, sheetsProcessed } = await parseExcelAllSheets(file)
+      if (sheetsProcessed === 0) { toast('Fichier vide ou format non supporté', 'error'); return }
       if (rows.length === 0) toast('Impossible de lire ce fichier automatiquement. Vérifie le format.', 'error')
-      else setImportRows(rows)
+      else {
+        setImportRows(rows)
+        if (sheetsProcessed > 1) toast(`${sheetsProcessed} onglets lus — ${rows.length} entrées trouvées`)
+      }
     } catch (err) {
       const msg = (err as Error).message
       if (msg === 'timeout') toast("L'analyse prend du temps, réessaie", 'error')
@@ -392,6 +393,22 @@ export function Settings() {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Solo mode */}
+                <div className="bg-[#0e0e11] border border-[#1a1a1f] rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-200">Mode solo</p>
+                    <p className="text-xs text-zinc-600 mt-0.5">Masquer l'équipe dans le planning sans la quitter</p>
+                  </div>
+                  <button
+                    onClick={() => { setSoloMode(!soloMode); toast(soloMode ? 'Mode équipe réactivé' : 'Mode solo activé') }}
+                    className={`relative w-10 h-5.5 rounded-full transition-colors shrink-0 ${soloMode ? 'bg-amber-500' : 'bg-[#1e1e24] border border-[#2a2a35]'}`}
+                    style={{ height: '22px', width: '40px' }}
+                  >
+                    <span className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white transition-transform shadow-sm`}
+                      style={{ width: '18px', height: '18px', transform: soloMode ? 'translateX(20px)' : 'translateX(2px)' }} />
+                  </button>
                 </div>
 
                 {team.ownerId !== user?.uid && (
