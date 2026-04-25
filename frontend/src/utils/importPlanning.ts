@@ -60,7 +60,7 @@ export async function parseWithAI(fileContent: string, fileName: string): Promis
         'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20251001',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 4000,
         system: IMPORT_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],

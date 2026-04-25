@@ -184,7 +184,7 @@ export function Documents() {
   }, [documents, filterType, filterStatus])
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 sm:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Documents</h1>
@@ -257,7 +257,7 @@ export function Documents() {
                   <span className="text-xs font-medium text-emerald-400">{doc.totalAmount.toLocaleString('fr-FR')} €</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                 <button onClick={() => downloadPdf(doc)} title="Télécharger PDF"
                   className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
                   <Download size={14} />
@@ -354,22 +354,24 @@ export function Documents() {
                 </div>
                 <div className="space-y-2">
                   {form.items.map((item, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-2 items-center">
-                      <input className="col-span-4 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-2 py-1.5 text-white text-xs focus:ring-indigo-500 focus:outline-none"
+                    <div key={i} className="flex flex-col gap-1.5 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center p-2 sm:p-0 bg-zinc-800/30 sm:bg-transparent rounded-xl sm:rounded-none">
+                      <input className="sm:col-span-4 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-2 py-1.5 text-white text-xs focus:ring-indigo-500 focus:outline-none"
                         placeholder="Description" value={item.description}
                         onChange={e => handleItemChange(i, 'description', e.target.value)} />
-                      <input type="number" min={1} className="col-span-2 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-2 py-1.5 text-white text-xs focus:ring-indigo-500 focus:outline-none"
-                        placeholder="Qté" value={item.quantity}
-                        onChange={e => handleItemChange(i, 'quantity', Number(e.target.value))} />
-                      <input type="number" min={0} className="col-span-3 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-2 py-1.5 text-white text-xs focus:ring-indigo-500 focus:outline-none"
-                        placeholder="PU HT (€)" value={item.unitPrice || ''}
-                        onChange={e => handleItemChange(i, 'unitPrice', Number(e.target.value))} />
-                      <input type="number" min={0} max={100} className="col-span-2 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-2 py-1.5 text-white text-xs focus:ring-indigo-500 focus:outline-none"
-                        placeholder="TVA%" value={item.taxRate}
-                        onChange={e => handleItemChange(i, 'taxRate', Number(e.target.value))} />
-                      <button onClick={() => handleRemoveItem(i)} className="col-span-1 flex justify-center text-zinc-600 hover:text-red-400 transition-colors">
-                        <X size={14} />
-                      </button>
+                      <div className="flex gap-1.5 sm:contents">
+                        <input type="number" min={1} className="flex-1 sm:col-span-2 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-2 py-1.5 text-white text-xs focus:ring-indigo-500 focus:outline-none"
+                          placeholder="Qté" value={item.quantity}
+                          onChange={e => handleItemChange(i, 'quantity', Number(e.target.value))} />
+                        <input type="number" min={0} className="flex-[2] sm:col-span-3 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-2 py-1.5 text-white text-xs focus:ring-indigo-500 focus:outline-none"
+                          placeholder="PU HT (€)" value={item.unitPrice || ''}
+                          onChange={e => handleItemChange(i, 'unitPrice', Number(e.target.value))} />
+                        <input type="number" min={0} max={100} className="flex-1 sm:col-span-2 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-2 py-1.5 text-white text-xs focus:ring-indigo-500 focus:outline-none"
+                          placeholder="TVA%" value={item.taxRate}
+                          onChange={e => handleItemChange(i, 'taxRate', Number(e.target.value))} />
+                        <button onClick={() => handleRemoveItem(i)} className="sm:col-span-1 flex justify-center items-center text-zinc-600 hover:text-red-400 transition-colors px-1">
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

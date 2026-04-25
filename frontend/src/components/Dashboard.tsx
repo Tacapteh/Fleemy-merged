@@ -102,7 +102,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const urgentTasks = tasks.filter(t => t.status !== 'done' && t.priority === 1).slice(0, 5)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">
           Bonjour 👋
