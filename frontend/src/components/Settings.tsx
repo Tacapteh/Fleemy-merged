@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { Save, Clock, DollarSign, Mail, Users, Copy, LogIn, Check, ChevronRight, Upload, Trash2 } from 'lucide-react'
+import { Save, Clock, DollarSign, Mail, Users, Copy, LogIn, Check, ChevronRight, Upload, Trash2, Plus, X } from 'lucide-react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { useTeam } from '../hooks/useTeam'
 import { useHistoricalEvents } from '../hooks/useHistoricalEvents'
 import { useToast } from '../context/ToastContext'
-import { parseHistoricalPlanning, type ImportPreviewRow } from '../utils/importPlanning'
+import { parseWithAI, aiRowToEvent, type AIImportedRow } from '../utils/importPlanning'
+import { fileToText } from '../utils/fileToText'
 import type { AppSettings } from '../types'
 
 const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
@@ -93,8 +94,9 @@ export function Settings() {
 
   // Import state
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [importRows, setImportRows] = useState<ImportPreviewRow[]>([])
+  const [importRows, setImportRows] = useState<AIImportedRow[]>([])
   const [importing, setImporting] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
 
   // Load settings from Firestore (skipped in mock mode)
   useEffect(() => {
@@ -132,36 +134,50 @@ export function Settings() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    try {
-      const rows = await parseHistoricalPlanning(file)
-      setImportRows(rows)
-      if (rows.length === 0) toast('Aucune ligne valide trouvée dans le fichier', 'error')
-    } catch {
-      toast('Erreur lors de la lecture du fichier', 'error')
-    }
     e.target.value = ''
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast('Fichier trop lourd, essaie de le découper par mois', 'error')
+      return
+    }
+
+    setAnalyzing(true)
+    setImportRows([])
+    try {
+      const content = await fileToText(file)
+      if (!content.trim()) { toast('Fichier vide ou format non supporté', 'error'); return }
+      const rows = await parseWithAI(content, file.name)
+      if (rows.length === 0) toast('Impossible de lire ce fichier automatiquement. Vérifie le format.', 'error')
+      else setImportRows(rows)
+    } catch (err) {
+      const msg = (err as Error).message
+      if (msg === 'timeout') toast("L'analyse prend du temps, réessaie", 'error')
+      else if (msg.includes('VITE_ANTHROPIC')) toast('Clé API Anthropic manquante (VITE_ANTHROPIC_API_KEY)', 'error')
+      else toast('Erreur lors de la lecture du fichier', 'error')
+    } finally {
+      setAnalyzing(false)
+    }
   }
+
+  const updateRow = (i: number, patch: Partial<AIImportedRow>) =>
+    setImportRows(rows => rows.map((r, idx) => idx === i ? { ...r, ...patch } : r))
+
+  const removeRow = (i: number) =>
+    setImportRows(rows => rows.filter((_, idx) => idx !== i))
+
+  const addRow = () =>
+    setImportRows(rows => [...rows, { clientName: '', date: '', hours: 1, amount: 0, hourlyRate: 15, notes: '', isExpense: false }])
 
   const handleImportConfirm = async () => {
     if (importRows.length === 0) return
     setImporting(true)
     try {
-      const events = importRows.map(r => ({
-        type: 'event' as const,
-        title: r.title,
-        date: r.date,
-        startTime: r.startTime,
-        endTime: r.endTime,
-        clientName: r.clientName || undefined,
-        paymentStatus: r.paymentStatus,
-        isBillable: r.isBillable,
-        overridePrice: r.overridePrice,
-      }))
+      const events = importRows.map(aiRowToEvent)
       await addHistoricalEvents(events)
       toast(`${importRows.length} événement${importRows.length > 1 ? 's' : ''} importé${importRows.length > 1 ? 's' : ''}`)
       setImportRows([])
     } catch {
-      toast('Erreur lors de l\'import', 'error')
+      toast("Erreur lors de l'import", 'error')
     } finally {
       setImporting(false)
     }
@@ -435,35 +451,51 @@ export function Settings() {
         {/* ── Import ── */}
         {activeTab === 'import' && (
           <div>
-            <h2 className="text-lg font-bold text-white mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Import historique</h2>
-            <p className="text-sm text-zinc-600 mb-6">Importez un planning passé depuis un fichier Excel ou CSV</p>
+            <h2 className="text-lg font-bold text-white mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Import IA</h2>
+            <p className="text-sm text-zinc-600 mb-6">Importez n'importe quel planning — Claude analyse et normalise la structure automatiquement.</p>
 
             {/* Upload zone */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-[#1e1e24] hover:border-emerald-500/40 rounded-2xl p-8 flex flex-col items-center gap-3 cursor-pointer transition-colors mb-6 group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-[#111115] flex items-center justify-center group-hover:bg-emerald-500/10 transition-colors">
-                <Upload size={18} className="text-zinc-600 group-hover:text-emerald-400 transition-colors" />
+            {!analyzing && importRows.length === 0 && (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-[#1e1e24] hover:border-violet-500/40 rounded-2xl p-8 flex flex-col items-center gap-3 cursor-pointer transition-colors mb-6 group"
+              >
+                <div className="w-12 h-12 rounded-xl bg-[#111115] flex items-center justify-center group-hover:bg-violet-500/10 transition-colors">
+                  <Upload size={20} className="text-zinc-600 group-hover:text-violet-400 transition-colors" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-zinc-400">Cliquez pour sélectionner un fichier</p>
+                  <p className="text-xs text-zinc-700 mt-1">.xlsx · .xls · .ods · .csv · .txt · .json — max 5 Mo</p>
+                  <p className="text-xs text-zinc-800 mt-0.5">N'importe quel format de tableau ou planning</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.ods,.csv,.txt,.json"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
               </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-zinc-400">Cliquez pour sélectionner un fichier</p>
-                <p className="text-xs text-zinc-700 mt-0.5">.xlsx, .xls, .csv — colonnes : date, titre, heure_debut, heure_fin, client, statut, prix</p>
+            )}
+
+            {/* Analyzing spinner */}
+            {analyzing && (
+              <div className="border-2 border-dashed border-violet-500/30 rounded-2xl p-10 flex flex-col items-center gap-4 mb-6 bg-violet-500/5">
+                <div className="flex gap-1.5">
+                  {[0,1,2].map(i => (
+                    <div key={i} className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />
+                  ))}
+                </div>
+                <p className="text-sm text-violet-300 font-medium">Analyse en cours…</p>
+                <p className="text-xs text-zinc-600">Claude lit et normalise votre planning</p>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </div>
+            )}
 
             {/* Already imported count */}
-            {historicalEvents.length > 0 && (
+            {historicalEvents.length > 0 && importRows.length === 0 && !analyzing && (
               <div className="flex items-center justify-between mb-4 bg-[#0e0e11] border border-[#1a1a1f] rounded-xl px-4 py-3">
                 <p className="text-sm text-zinc-400">
-                  <span className="font-semibold text-white">{historicalEvents.length}</span> événement{historicalEvents.length > 1 ? 's' : ''} importé{historicalEvents.length > 1 ? 's' : ''}
+                  <span className="font-semibold text-white">{historicalEvents.length}</span> événement{historicalEvents.length > 1 ? 's' : ''} dans l'historique
                 </p>
                 <button
                   onClick={async () => { await clearHistoricalEvents(); toast('Historique effacé') }}
@@ -474,52 +506,121 @@ export function Settings() {
               </div>
             )}
 
-            {/* Preview table */}
+            {/* Editable preview table */}
             {importRows.length > 0 && (
               <div className="bg-[#0e0e11] border border-[#1a1a1f] rounded-2xl overflow-hidden">
+                {/* Header */}
                 <div className="px-4 py-3 border-b border-[#1a1a1f] flex items-center justify-between">
-                  <p className="text-sm font-semibold text-white">{importRows.length} ligne{importRows.length > 1 ? 's' : ''} à importer</p>
-                  <button onClick={() => setImportRows([])} className="text-xs text-zinc-600 hover:text-zinc-400">Annuler</button>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+                    <p className="text-sm font-semibold text-white">Prévisualisation IA</p>
+                  </div>
+                  <button onClick={() => setImportRows([])} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
+                    Annuler
+                  </button>
                 </div>
-                <div className="overflow-x-auto max-h-64 overflow-y-auto">
+
+                {/* Table */}
+                <div className="overflow-x-auto max-h-80 overflow-y-auto">
                   <table className="w-full text-xs">
-                    <thead className="sticky top-0 bg-[#0e0e11]">
-                      <tr className="border-b border-[#1a1a1f]">
-                        {['Date', 'Titre', 'Début', 'Fin', 'Client', 'Statut'].map(h => (
-                          <th key={h} className="px-3 py-2 text-left text-zinc-600 font-medium">{h}</th>
+                    <thead className="sticky top-0 z-10 bg-[#0e0e11] border-b border-[#1a1a1f]">
+                      <tr>
+                        {['Client', 'Date', 'Heures', 'Montant €', 'Taux €/h', 'Dépense', ''].map(h => (
+                          <th key={h} className="px-2 py-2 text-left text-zinc-600 font-medium whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {importRows.map((r, i) => (
-                        <tr key={i} className="border-b border-[#1a1a1f] last:border-b-0 hover:bg-[#111115]">
-                          <td className="px-3 py-2 text-zinc-400 font-mono">{r.date}</td>
-                          <td className="px-3 py-2 text-zinc-200 truncate max-w-[140px]">{r.title}</td>
-                          <td className="px-3 py-2 text-zinc-500 font-mono">{r.startTime}</td>
-                          <td className="px-3 py-2 text-zinc-500 font-mono">{r.endTime}</td>
-                          <td className="px-3 py-2 text-zinc-400 truncate max-w-[100px]">{r.clientName || '—'}</td>
-                          <td className="px-3 py-2">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              r.paymentStatus === 'paid' ? 'bg-emerald-500/15 text-emerald-400' :
-                              r.paymentStatus === 'pending' ? 'bg-amber-500/15 text-amber-400' :
-                              r.paymentStatus === 'unpaid' ? 'bg-red-500/15 text-red-400' :
-                              'bg-zinc-700/50 text-zinc-500'
-                            }`}>
-                              {r.paymentStatus === 'paid' ? 'Payé' : r.paymentStatus === 'pending' ? 'En attente' : r.paymentStatus === 'unpaid' ? 'Impayé' : 'Non travaillé'}
-                            </span>
+                        <tr key={i} className="border-b border-[#1a1a1f] last:border-b-0 hover:bg-[#111115] group">
+                          <td className="px-2 py-1.5">
+                            <input
+                              className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-200 w-full focus:outline-none transition-colors min-w-[90px]"
+                              value={r.clientName}
+                              onChange={e => updateRow(i, { clientName: e.target.value })}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <input
+                              type="date"
+                              className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-400 font-mono focus:outline-none transition-colors [color-scheme:dark]"
+                              value={r.date}
+                              onChange={e => updateRow(i, { date: e.target.value })}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <input
+                              type="number" min={0} step={0.25}
+                              className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-300 w-20 focus:outline-none transition-colors"
+                              value={r.hours}
+                              onChange={e => updateRow(i, { hours: Number(e.target.value) })}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <input
+                              type="number" min={0} step={1}
+                              className={`bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 w-24 focus:outline-none transition-colors ${r.isExpense ? 'text-red-400' : 'text-emerald-400'}`}
+                              value={r.amount}
+                              onChange={e => updateRow(i, { amount: Number(e.target.value) })}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <input
+                              type="number" min={0} step={1}
+                              className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-500 w-20 focus:outline-none transition-colors"
+                              value={r.hourlyRate}
+                              onChange={e => updateRow(i, { hourlyRate: Number(e.target.value) })}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <button
+                              onClick={() => updateRow(i, { isExpense: !r.isExpense })}
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${r.isExpense ? 'bg-red-500/20 border-red-500/60' : 'border-[#2a2a35]'}`}
+                            >
+                              {r.isExpense && <Check size={10} className="text-red-400" />}
+                            </button>
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <button
+                              onClick={() => removeRow(i)}
+                              className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded bg-[#1a1a1f] flex items-center justify-center text-zinc-600 hover:text-red-400 transition-all"
+                            >
+                              <X size={10} />
+                            </button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <div className="px-4 py-3 border-t border-[#1a1a1f]">
+
+                {/* Footer */}
+                <div className="px-4 py-3 border-t border-[#1a1a1f] space-y-3">
+                  {/* Summary */}
+                  <div className="flex items-center justify-between text-xs text-zinc-500">
+                    <div className="flex items-center gap-3">
+                      <span>{importRows.length} entrée{importRows.length > 1 ? 's' : ''}</span>
+                      <span>·</span>
+                      <span>{new Set(importRows.map(r => r.clientName).filter(Boolean)).size} client{new Set(importRows.map(r => r.clientName).filter(Boolean)).size > 1 ? 's' : ''}</span>
+                    </div>
+                    <span className="font-semibold text-emerald-400">
+                      Total : {importRows.reduce((s, r) => s + (r.isExpense ? -r.amount : r.amount), 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={addRow}
+                    className="w-full py-1.5 border border-dashed border-[#1e1e24] hover:border-violet-500/30 text-zinc-600 hover:text-violet-400 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Plus size={11} /> Ajouter une ligne
+                  </button>
+
                   <button
                     onClick={handleImportConfirm}
                     disabled={importing}
-                    className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors"
+                    className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors"
                   >
-                    {importing ? 'Import en cours…' : `Confirmer l'import (${importRows.length} lignes)`}
+                    {importing ? 'Import en cours…' : `Confirmer l'import (${importRows.length} ligne${importRows.length > 1 ? 's' : ''})`}
                   </button>
                 </div>
               </div>
