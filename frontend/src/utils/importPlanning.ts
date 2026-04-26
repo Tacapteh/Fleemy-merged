@@ -124,17 +124,12 @@ export async function parseExcelAllSheets(
 
   if (sheetContents.length === 0) return { rows: [], sheetsProcessed: 0 }
 
-  // Always process sheets in batches to avoid max_tokens truncation
-  const BATCH = 3
+  // Process sheets one at a time to avoid rate limiting on parallel calls
   const allRows: AIImportedRow[] = []
-  for (let i = 0; i < sheetContents.length; i += BATCH) {
-    const batch = sheetContents.slice(i, i + BATCH)
-    const results = await Promise.all(
-      batch.map(({ name, content }) =>
-        parseWithAI(content.slice(0, 50000), `${file.name} — ${name}`).catch(() => [] as AIImportedRow[])
-      )
-    )
-    allRows.push(...results.flat())
+  for (const { name, content } of sheetContents) {
+    const rows = await parseWithAI(content.slice(0, 50000), `${file.name} — ${name}`)
+      .catch(() => [] as AIImportedRow[])
+    allRows.push(...rows)
   }
 
   return { rows: allRows, sheetsProcessed: sheetContents.length }
