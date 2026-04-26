@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, Check,
+  Plus, ChevronLeft, ChevronRight, X, Check,
   AlertCircle, AlertTriangle, CheckCircle2,
   Briefcase, Code2, Phone, Mail, Star, Target, Zap, Users, FileText,
   Pencil, Home, BookOpen, Calendar, Sun, ShoppingBag, Layers,
@@ -1231,11 +1231,14 @@ export function Planning() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button onClick={() => setCurrent(d => addYears(d, -1))} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-700 hover:text-zinc-400 transition-colors" title="Année précédente"><ChevronsLeft size={15} /></button>
+          <div className="flex items-center gap-0.5 mr-0.5">
+            <button onClick={() => setCurrent(d => addYears(d, -1))} className="p-1 rounded text-zinc-700 hover:text-zinc-400 transition-colors"><ChevronLeft size={11} /></button>
+            <span className="text-[11px] font-mono text-zinc-600 tabular-nums w-9 text-center select-none">{format(current, 'yyyy')}</span>
+            <button onClick={() => setCurrent(d => addYears(d, 1))} className="p-1 rounded text-zinc-700 hover:text-zinc-400 transition-colors"><ChevronRight size={11} /></button>
+          </div>
           <button onClick={() => nav(-1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors"><ChevronLeft size={15} /></button>
           <button onClick={() => setCurrent(new Date())} className="px-2.5 py-1 text-xs bg-[#111114] hover:bg-[#1a1a1f] border border-[#1a1a1f] text-zinc-400 rounded-lg transition-colors">Aujourd'hui</button>
           <button onClick={() => nav(1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors"><ChevronRight size={15} /></button>
-          <button onClick={() => setCurrent(d => addYears(d, 1))} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-700 hover:text-zinc-400 transition-colors" title="Année suivante"><ChevronsRight size={15} /></button>
           {!isMemberView && <>
             <div className="w-px h-4 bg-[#1a1a1f] mx-1 hidden sm:block" />
             <button onClick={() => openModal('task')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0e0e11] hover:bg-[#1a1a1f] border border-[#1a1a1f] text-zinc-300 rounded-lg text-xs font-semibold transition-colors">
