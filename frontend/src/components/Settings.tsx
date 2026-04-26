@@ -5,6 +5,7 @@ import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { useTeam } from '../hooks/useTeam'
 import { useHistoricalEvents } from '../hooks/useHistoricalEvents'
+import { useClients } from '../hooks/useClients'
 import { useToast } from '../context/ToastContext'
 import { parseExcelAllSheets, aiRowToEvent, type AIImportedRow } from '../utils/importPlanning'
 import type { AppSettings } from '../types'
@@ -81,6 +82,7 @@ export function Settings() {
   const { user } = useAuth()
   const { team, loading: tl, error: te, soloMode, setSoloMode, createTeam, joinTeam, leaveTeam } = useTeam()
   const { historicalEvents, addHistoricalEvents, clearHistoricalEvents } = useHistoricalEvents()
+  const { clients, addClient } = useClients()
   const { toast } = useToast()
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULTS)
@@ -195,7 +197,19 @@ export function Settings() {
     try {
       const events = importRows.map(aiRowToEvent)
       await addHistoricalEvents(events)
-      toast(`${importRows.length} événement${importRows.length > 1 ? 's' : ''} importé${importRows.length > 1 ? 's' : ''}`)
+
+      // Auto-create clients that don't exist yet (case-insensitive dedup)
+      const existingNames = new Set(clients.map(c => c.name.toLowerCase()))
+      const today = new Date().toISOString().slice(0, 10)
+      const newNames = [...new Set(
+        importRows.map(r => r.clientName).filter(Boolean)
+      )].filter(name => !existingNames.has(name.toLowerCase()))
+      for (const name of newNames) {
+        await addClient({ name, company: '', email: '', status: 'lead', lastContact: today })
+      }
+
+      const clientMsg = newNames.length > 0 ? ` · ${newNames.length} client${newNames.length > 1 ? 's' : ''} créé${newNames.length > 1 ? 's' : ''}` : ''
+      toast(`${importRows.length} événement${importRows.length > 1 ? 's' : ''} importé${importRows.length > 1 ? 's' : ''}${clientMsg}`)
       setImportRows([])
     } catch {
       toast("Erreur lors de l'import", 'error')
