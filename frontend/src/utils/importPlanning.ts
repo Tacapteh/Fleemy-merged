@@ -83,6 +83,69 @@ export async function parseWithAI(fileContent: string, fileName: string): Promis
   }
 }
 
+// ── Multi-sheet Excel parser ──────────────────────────────────────────────────
+
+function isSheetEmpty(csv: string): boolean {
+  return !csv.replace(/[,\n\r\s]/g, '').trim()
+}
+
+/**
+ * Parses any file, processing each Excel sheet separately to avoid truncation.
+ * Non-Excel files fall back to a single AI call via fileToText.
+ */
+export async function parseExcelAllSheets(
+  file: File
+): Promise<{ rows: AIImportedRow[]; sheetsProcessed: number }> {
+  const ext = file.name.split('.').pop()?.toLowerCase()
+
+  if (!['xlsx', 'xls', 'ods'].includes(ext ?? '')) {
+    const { fileToText } = await import('./fileToText')
+    const content = await fileToText(file)
+    if (!content.trim()) return { rows: [], sheetsProcessed: 0 }
+    const rows = await parseWithAI(content, file.name)
+    return { rows, sheetsProcessed: 1 }
+  }
+
+  const buffer = await file.arrayBuffer()
+  const wb = XLSX.read(buffer, { type: 'array', cellDates: true })
+
+  const sheetContents: { name: string; content: string }[] = []
+  for (const sheetName of wb.SheetNames) {
+    if (sheetName.toLowerCase() === 'template') continue
+    const ws = wb.Sheets[sheetName]
+    const csv = XLSX.utils.sheet_to_csv(ws, { skipHidden: true })
+    if (isSheetEmpty(csv)) continue
+    sheetContents.push({
+      name: sheetName,
+      content: `=== Onglet: ${sheetName} ===\n${csv}`,
+    })
+  }
+
+  if (sheetContents.length === 0) return { rows: [], sheetsProcessed: 0 }
+
+  const totalLen = sheetContents.reduce((s, c) => s + c.content.length, 0)
+  if (totalLen < 60000) {
+    const combined = sheetContents.map(s => s.content).join('\n\n')
+    const rows = await parseWithAI(combined, file.name)
+    return { rows, sheetsProcessed: sheetContents.length }
+  }
+
+  // Large file: process sheets in parallel batches of 3
+  const BATCH = 3
+  const allRows: AIImportedRow[] = []
+  for (let i = 0; i < sheetContents.length; i += BATCH) {
+    const batch = sheetContents.slice(i, i + BATCH)
+    const results = await Promise.all(
+      batch.map(({ name, content }) =>
+        parseWithAI(content.slice(0, 50000), `${file.name} — ${name}`).catch(() => [] as AIImportedRow[])
+      )
+    )
+    allRows.push(...results.flat())
+  }
+
+  return { rows: allRows, sheetsProcessed: sheetContents.length }
+}
+
 export interface HistoricalEvent extends Omit<EventItem, 'id'> {
   source: 'import'
 }

@@ -1,13 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
-import { Save, Clock, DollarSign, Mail, Users, Copy, LogIn, Check, ChevronRight, Upload, Trash2, Plus, X } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Save, Clock, DollarSign, Mail, Users, Copy, LogIn, Check, ChevronRight, Upload, Trash2, Plus, X, Search } from 'lucide-react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { useTeam } from '../hooks/useTeam'
 import { useHistoricalEvents } from '../hooks/useHistoricalEvents'
 import { useToast } from '../context/ToastContext'
-import { parseWithAI, aiRowToEvent, type AIImportedRow } from '../utils/importPlanning'
-import { fileToText } from '../utils/fileToText'
+import { parseExcelAllSheets, aiRowToEvent, type AIImportedRow } from '../utils/importPlanning'
 import type { AppSettings } from '../types'
 
 const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
@@ -97,6 +96,25 @@ export function Settings() {
   const [importRows, setImportRows] = useState<AIImportedRow[]>([])
   const [importing, setImporting] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  const [importSearch, setImportSearch] = useState('')
+
+  const filteredImportRows = useMemo(() => {
+    const q = importSearch.trim().toLowerCase()
+    if (!q) return importRows.map((r, i) => ({ ...r, _idx: i }))
+    return importRows
+      .map((r, i) => ({ ...r, _idx: i }))
+      .filter(r =>
+        r.clientName.toLowerCase().includes(q) ||
+        r.date.includes(q) ||
+        r.notes.toLowerCase().includes(q)
+      )
+  }, [importRows, importSearch])
+
+  const removeFilteredRows = () => {
+    const idxToRemove = new Set(filteredImportRows.map(r => r._idx))
+    setImportRows(rows => rows.filter((_, i) => !idxToRemove.has(i)))
+    setImportSearch('')
+  }
 
   // Load settings from Firestore (skipped in mock mode)
   useEffect(() => {
@@ -143,12 +161,15 @@ export function Settings() {
 
     setAnalyzing(true)
     setImportRows([])
+    setImportSearch('')
     try {
-      const content = await fileToText(file)
-      if (!content.trim()) { toast('Fichier vide ou format non supporté', 'error'); return }
-      const rows = await parseWithAI(content, file.name)
+      const { rows, sheetsProcessed } = await parseExcelAllSheets(file)
+      if (sheetsProcessed === 0) { toast('Fichier vide ou format non supporté', 'error'); return }
       if (rows.length === 0) toast('Impossible de lire ce fichier automatiquement. Vérifie le format.', 'error')
-      else setImportRows(rows)
+      else {
+        setImportRows(rows)
+        if (sheetsProcessed > 1) toast(`${sheetsProcessed} onglets lus — ${rows.length} entrées trouvées`)
+      }
     } catch (err) {
       const msg = (err as Error).message
       if (msg === 'timeout') toast("L'analyse prend du temps, réessaie", 'error')
@@ -522,6 +543,40 @@ export function Settings() {
                   </button>
                 </div>
 
+                {/* Search bar */}
+                <div className="px-4 py-2.5 border-b border-[#1a1a1f]">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-1.5 focus-within:border-violet-500/40 transition-colors">
+                      <Search size={13} className="text-zinc-600 shrink-0" />
+                      <input
+                        className="flex-1 bg-transparent text-xs text-zinc-200 placeholder-zinc-700 focus:outline-none"
+                        placeholder="Chercher par client, date, note…"
+                        value={importSearch}
+                        onChange={e => setImportSearch(e.target.value)}
+                      />
+                      {importSearch && (
+                        <button onClick={() => setImportSearch('')} className="text-zinc-600 hover:text-zinc-400 shrink-0">
+                          <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                    {importSearch && filteredImportRows.length > 0 && (
+                      <button
+                        onClick={removeFilteredRows}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors whitespace-nowrap shrink-0"
+                        title={`Supprimer les ${filteredImportRows.length} lignes filtrées`}
+                      >
+                        <Trash2 size={11} /> Supprimer ({filteredImportRows.length})
+                      </button>
+                    )}
+                  </div>
+                  {importSearch && (
+                    <p className="text-[10px] text-zinc-600 mt-1.5">
+                      {filteredImportRows.length} résultat{filteredImportRows.length !== 1 ? 's' : ''} sur {importRows.length}
+                    </p>
+                  )}
+                </div>
+
                 {/* Table */}
                 <div className="overflow-x-auto max-h-80 overflow-y-auto">
                   <table className="w-full text-xs">
@@ -533,65 +588,73 @@ export function Settings() {
                       </tr>
                     </thead>
                     <tbody>
-                      {importRows.map((r, i) => (
-                        <tr key={i} className="border-b border-[#1a1a1f] last:border-b-0 hover:bg-[#111115] group">
-                          <td className="px-2 py-1.5">
-                            <input
-                              className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-200 w-full focus:outline-none transition-colors min-w-[90px]"
-                              value={r.clientName}
-                              onChange={e => updateRow(i, { clientName: e.target.value })}
-                            />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <input
-                              type="date"
-                              className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-400 font-mono focus:outline-none transition-colors [color-scheme:dark]"
-                              value={r.date}
-                              onChange={e => updateRow(i, { date: e.target.value })}
-                            />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <input
-                              type="number" min={0} step={0.25}
-                              className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-300 w-20 focus:outline-none transition-colors"
-                              value={r.hours}
-                              onChange={e => updateRow(i, { hours: Number(e.target.value) })}
-                            />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <input
-                              type="number" min={0} step={1}
-                              className={`bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 w-24 focus:outline-none transition-colors ${r.isExpense ? 'text-red-400' : 'text-emerald-400'}`}
-                              value={r.amount}
-                              onChange={e => updateRow(i, { amount: Number(e.target.value) })}
-                            />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <input
-                              type="number" min={0} step={1}
-                              className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-500 w-20 focus:outline-none transition-colors"
-                              value={r.hourlyRate}
-                              onChange={e => updateRow(i, { hourlyRate: Number(e.target.value) })}
-                            />
-                          </td>
-                          <td className="px-2 py-1.5 text-center">
-                            <button
-                              onClick={() => updateRow(i, { isExpense: !r.isExpense })}
-                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${r.isExpense ? 'bg-red-500/20 border-red-500/60' : 'border-[#2a2a35]'}`}
-                            >
-                              {r.isExpense && <Check size={10} className="text-red-400" />}
-                            </button>
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <button
-                              onClick={() => removeRow(i)}
-                              className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded bg-[#1a1a1f] flex items-center justify-center text-zinc-600 hover:text-red-400 transition-all"
-                            >
-                              <X size={10} />
-                            </button>
+                      {filteredImportRows.length === 0 && importSearch ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-6 text-center text-xs text-zinc-600">
+                            Aucune ligne ne correspond à « {importSearch} »
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        filteredImportRows.map(r => (
+                          <tr key={r._idx} className="border-b border-[#1a1a1f] last:border-b-0 hover:bg-[#111115] group">
+                            <td className="px-2 py-1.5">
+                              <input
+                                className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-200 w-full focus:outline-none transition-colors min-w-[90px]"
+                                value={r.clientName}
+                                onChange={e => updateRow(r._idx, { clientName: e.target.value })}
+                              />
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <input
+                                type="date"
+                                className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-400 font-mono focus:outline-none transition-colors [color-scheme:dark]"
+                                value={r.date}
+                                onChange={e => updateRow(r._idx, { date: e.target.value })}
+                              />
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <input
+                                type="number" min={0} step={0.25}
+                                className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-300 w-20 focus:outline-none transition-colors"
+                                value={r.hours}
+                                onChange={e => updateRow(r._idx, { hours: Number(e.target.value) })}
+                              />
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <input
+                                type="number" min={0} step={1}
+                                className={`bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 w-24 focus:outline-none transition-colors ${r.isExpense ? 'text-red-400' : 'text-emerald-400'}`}
+                                value={r.amount}
+                                onChange={e => updateRow(r._idx, { amount: Number(e.target.value) })}
+                              />
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <input
+                                type="number" min={0} step={1}
+                                className="bg-transparent border border-transparent hover:border-[#1e1e24] focus:border-violet-500/40 rounded-lg px-2 py-1 text-zinc-500 w-20 focus:outline-none transition-colors"
+                                value={r.hourlyRate}
+                                onChange={e => updateRow(r._idx, { hourlyRate: Number(e.target.value) })}
+                              />
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              <button
+                                onClick={() => updateRow(r._idx, { isExpense: !r.isExpense })}
+                                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${r.isExpense ? 'bg-red-500/20 border-red-500/60' : 'border-[#2a2a35]'}`}
+                              >
+                                {r.isExpense && <Check size={10} className="text-red-400" />}
+                              </button>
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <button
+                                onClick={() => removeRow(r._idx)}
+                                className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded bg-[#1a1a1f] flex items-center justify-center text-zinc-600 hover:text-red-400 transition-all"
+                              >
+                                <X size={10} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -610,12 +673,14 @@ export function Settings() {
                     </span>
                   </div>
 
-                  <button
-                    onClick={addRow}
-                    className="w-full py-1.5 border border-dashed border-[#1e1e24] hover:border-violet-500/30 text-zinc-600 hover:text-violet-400 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <Plus size={11} /> Ajouter une ligne
-                  </button>
+                  {!importSearch && (
+                    <button
+                      onClick={addRow}
+                      className="w-full py-1.5 border border-dashed border-[#1e1e24] hover:border-violet-500/30 text-zinc-600 hover:text-violet-400 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <Plus size={11} /> Ajouter une ligne
+                    </button>
+                  )}
 
                   <button
                     onClick={handleImportConfirm}
