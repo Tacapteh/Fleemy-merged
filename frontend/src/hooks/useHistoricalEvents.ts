@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   collection, query, where, onSnapshot,
-  addDoc, deleteDoc, doc, serverTimestamp,
+  writeBatch, deleteDoc, doc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from './useAuth'
@@ -34,14 +34,21 @@ function useHistoricalEventsFirestore() {
   const addHistoricalEvents = async (events: Omit<EventItem, 'id'>[]) => {
     if (!user) return
     const importedAt = new Date().toISOString()
-    for (const ev of events) {
-      await addDoc(collection(db, 'events'), {
-        ...ev,
-        userId: user.uid,
-        importedAt,
-        imported: true,
-        createdAt: serverTimestamp(),
-      })
+    // Firestore batch limit = 500 ops; chunk to stay safe
+    const CHUNK = 400
+    for (let i = 0; i < events.length; i += CHUNK) {
+      const batch = writeBatch(db)
+      for (const ev of events.slice(i, i + CHUNK)) {
+        const ref = doc(collection(db, 'events'))
+        batch.set(ref, {
+          ...ev,
+          userId: user.uid,
+          importedAt,
+          imported: true,
+          createdAt: serverTimestamp(),
+        })
+      }
+      await batch.commit()
     }
   }
 
@@ -52,8 +59,13 @@ function useHistoricalEventsFirestore() {
 
   const clearHistoricalEvents = async () => {
     if (!user) return
-    for (const ev of historicalEvents) {
-      await deleteDoc(doc(db, 'events', ev.id))
+    const CHUNK = 400
+    for (let i = 0; i < historicalEvents.length; i += CHUNK) {
+      const batch = writeBatch(db)
+      for (const ev of historicalEvents.slice(i, i + CHUNK)) {
+        batch.delete(doc(db, 'events', ev.id))
+      }
+      await batch.commit()
     }
   }
 
