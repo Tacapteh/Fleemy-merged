@@ -61,7 +61,7 @@ export async function parseWithAI(fileContent: string, fileName: string): Promis
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
+        max_tokens: 8000,
         system: IMPORT_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
       }),
@@ -124,15 +124,7 @@ export async function parseExcelAllSheets(
 
   if (sheetContents.length === 0) return { rows: [], sheetsProcessed: 0 }
 
-  // If total fits in one call, batch everything together
-  const totalLen = sheetContents.reduce((s, c) => s + c.content.length, 0)
-  if (totalLen < 60000) {
-    const combined = sheetContents.map(s => s.content).join('\n\n')
-    const rows = await parseWithAI(combined, file.name)
-    return { rows, sheetsProcessed: sheetContents.length }
-  }
-
-  // Large file: process sheets in parallel batches of 3
+  // Always process sheets in batches to avoid max_tokens truncation
   const BATCH = 3
   const allRows: AIImportedRow[] = []
   for (let i = 0; i < sheetContents.length; i += BATCH) {

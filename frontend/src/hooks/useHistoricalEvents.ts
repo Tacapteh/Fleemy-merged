@@ -18,7 +18,12 @@ function useHistoricalEventsFirestore() {
 
   useEffect(() => {
     if (!user) { setLoading(false); return }
-    const q = query(collection(db, 'historicalEvents'), where('userId', '==', user.uid))
+    // Query the shared events collection, filtering only imported events
+    const q = query(
+      collection(db, 'events'),
+      where('userId', '==', user.uid),
+      where('imported', '==', true),
+    )
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setHistoricalEvents(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as HistoricalEventRecord)))
       setLoading(false)
@@ -30,10 +35,11 @@ function useHistoricalEventsFirestore() {
     if (!user) return
     const importedAt = new Date().toISOString()
     for (const ev of events) {
-      await addDoc(collection(db, 'historicalEvents'), {
+      await addDoc(collection(db, 'events'), {
         ...ev,
         userId: user.uid,
         importedAt,
+        imported: true,
         createdAt: serverTimestamp(),
       })
     }
@@ -41,13 +47,13 @@ function useHistoricalEventsFirestore() {
 
   const deleteHistoricalEvent = async (id: string) => {
     if (!user) return
-    await deleteDoc(doc(db, 'historicalEvents', id))
+    await deleteDoc(doc(db, 'events', id))
   }
 
   const clearHistoricalEvents = async () => {
     if (!user) return
     for (const ev of historicalEvents) {
-      await deleteDoc(doc(db, 'historicalEvents', ev.id))
+      await deleteDoc(doc(db, 'events', ev.id))
     }
   }
 
