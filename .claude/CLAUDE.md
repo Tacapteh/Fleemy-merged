@@ -7,6 +7,10 @@
 - Listes courtes uniquement si nécessaire
 - Pas de résumé de ce que tu viens de faire
 
+## Git / PR
+- Pour chaque demande de modification ou correction : créer une nouvelle PR dédiée
+- Développer sur une branche feature, commit, push, puis ouvrir la PR vers master
+
 ## Code
 - Montre le code, c'est tout
 - Commentaires dans le code : uniquement si vraiment non-évident
