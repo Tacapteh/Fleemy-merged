@@ -90,8 +90,9 @@ function isSheetEmpty(csv: string): boolean {
 }
 
 /**
- * Parses any file, processing each Excel sheet separately to avoid truncation.
- * Non-Excel files fall back to a single AI call via fileToText.
+ * Parses any file type, processing each Excel sheet separately to avoid
+ * the 20k-char truncation that would cut off months after the first tab.
+ * Non-Excel files fall back to a single AI call.
  */
 export async function parseExcelAllSheets(
   file: File
@@ -123,6 +124,7 @@ export async function parseExcelAllSheets(
 
   if (sheetContents.length === 0) return { rows: [], sheetsProcessed: 0 }
 
+  // If total fits in one call, batch everything together
   const totalLen = sheetContents.reduce((s, c) => s + c.content.length, 0)
   if (totalLen < 60000) {
     const combined = sheetContents.map(s => s.content).join('\n\n')

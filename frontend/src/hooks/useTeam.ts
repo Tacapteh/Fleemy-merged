@@ -5,11 +5,21 @@ import { db } from '../services/firebase'
 import { useAuth } from './useAuth'
 import type { Team, TeamMember } from '../types'
 
+const SOLO_KEY = 'fleemy:team:solo'
+
 export function useTeam() {
   const { user } = useAuth()
   const [team, setTeam] = useState<Team | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [soloMode, setSoloModeState] = useState<boolean>(() => {
+    try { return localStorage.getItem(SOLO_KEY) === 'true' } catch { return false }
+  })
+
+  const setSoloMode = (v: boolean) => {
+    try { localStorage.setItem(SOLO_KEY, String(v)) } catch { /* ignore */ }
+    setSoloModeState(v)
+  }
 
   useEffect(() => {
     if (!user) { setLoading(false); return }
@@ -102,5 +112,5 @@ export function useTeam() {
     }
   }
 
-  return { team, loading, error, createTeam, joinTeam, leaveTeam }
+  return { team, loading, error, soloMode, setSoloMode, createTeam, joinTeam, leaveTeam }
 }

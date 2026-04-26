@@ -827,11 +827,14 @@ export function Planning() {
   const { events, addEvent, updateEvent, deleteEvent } = useEvents()
   const { clients } = useClients()
   const { historicalEvents } = useHistoricalEvents()
-  const { team } = useTeam()
+  const { team, soloMode } = useTeam()
   const { teamEvents, teamTasks } = useTeamPlanningData(team, user?.uid ?? '')
   const { toast } = useToast()
 
-  const [planningMode, setPlanningMode] = useState<'personal' | 'team'>('personal')
+  // 'personal' | 'team' | '<memberUid>'
+  const [planningMode, setPlanningMode] = useState<string>('personal')
+
+  const effectiveTeam = soloMode ? null : team
 
   const [view, setView] = useState<ViewMode>('week')
   const [current, setCurrent] = useState(new Date())
@@ -1167,8 +1170,26 @@ export function Planning() {
 
   const PAYMENT_LABELS: Record<string, string> = { paid: 'Payé', unpaid: 'Impayé', pending: 'En attente', 'not-worked': 'Non travaillé' }
 
-  const activeTeamEvents = planningMode === 'team' ? teamEvents : []
-  const activeTeamTasks  = planningMode === 'team' ? teamTasks  : []
+  const teammates = effectiveTeam
+    ? effectiveTeam.members.filter(m => m.uid !== user?.uid)
+    : []
+
+  const activeTeamEvents = useMemo(() => {
+    if (!effectiveTeam) return []
+    if (planningMode === 'team') return teamEvents
+    if (planningMode === 'personal') return []
+    return teamEvents.filter(e => e.ownerUid === planningMode)
+  }, [effectiveTeam, planningMode, teamEvents])
+
+  const activeTeamTasks = useMemo(() => {
+    if (!effectiveTeam) return []
+    if (planningMode === 'team') return teamTasks
+    if (planningMode === 'personal') return []
+    return teamTasks.filter(t => t.ownerUid === planningMode)
+  }, [effectiveTeam, planningMode, teamTasks])
+
+  // In member-view mode interactions are disabled (read-only grid)
+  const isMemberView = planningMode !== 'personal' && planningMode !== 'team'
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0d]">
@@ -1176,17 +1197,27 @@ export function Planning() {
       <div className="shrink-0 flex flex-col gap-2 px-4 py-3 border-b border-[#1a1a1f] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5 sm:gap-0">
         <div className="flex items-center justify-between sm:gap-4">
           <h1 className="text-[15px] font-bold text-zinc-100 capitalize tracking-tight truncate max-w-[160px] sm:max-w-none" style={{ fontFamily: "'Syne', sans-serif" }}>{title}</h1>
-          <div className="flex items-center gap-2">
-            {team && (
-              <div className="flex bg-[#111114] rounded-lg p-0.5 border border-[#1a1a1f]">
+          <div className="flex items-center gap-2 flex-wrap">
+            {effectiveTeam && (
+              <div className="flex bg-[#111114] rounded-lg p-0.5 border border-[#1a1a1f] max-w-[calc(100vw-160px)] overflow-x-auto">
                 <button onClick={() => setPlanningMode('personal')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${planningMode === 'personal' ? 'bg-[#1e1e24] text-emerald-400 shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${planningMode === 'personal' ? 'bg-[#1e1e24] text-emerald-400 shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}>
                   Moi
                 </button>
                 <button onClick={() => setPlanningMode('team')}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${planningMode === 'team' ? 'bg-[#1e1e24] text-indigo-400 shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${planningMode === 'team' ? 'bg-[#1e1e24] text-indigo-400 shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}>
                   Équipe
                 </button>
+                {teammates.map(m => (
+                  <button key={m.uid} onClick={() => setPlanningMode(m.uid)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all whitespace-nowrap ${planningMode === m.uid ? 'bg-[#1e1e24] text-violet-400 shadow-sm' : 'text-zinc-600 hover:text-zinc-400'}`}
+                    title={m.displayName}>
+                    <span className="w-4 h-4 rounded-full bg-violet-500/30 flex items-center justify-center text-[9px] font-bold text-violet-300 shrink-0">
+                      {m.displayName[0].toUpperCase()}
+                    </span>
+                    <span className="max-w-[72px] truncate">{m.displayName.split(' ')[0]}</span>
+                  </button>
+                ))}
               </div>
             )}
             <div className="flex bg-[#111114] rounded-lg p-0.5 border border-[#1a1a1f]">
@@ -1203,13 +1234,20 @@ export function Planning() {
           <button onClick={() => nav(-1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors"><ChevronLeft size={15} /></button>
           <button onClick={() => setCurrent(new Date())} className="px-2.5 py-1 text-xs bg-[#111114] hover:bg-[#1a1a1f] border border-[#1a1a1f] text-zinc-400 rounded-lg transition-colors">Aujourd'hui</button>
           <button onClick={() => nav(1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1f] text-zinc-600 hover:text-zinc-300 transition-colors"><ChevronRight size={15} /></button>
-          <div className="w-px h-4 bg-[#1a1a1f] mx-1 hidden sm:block" />
-          <button onClick={() => openModal('task')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0e0e11] hover:bg-[#1a1a1f] border border-[#1a1a1f] text-zinc-300 rounded-lg text-xs font-semibold transition-colors">
-            <Plus size={13} /> Tâche
-          </button>
-          <button onClick={() => openModal('event')} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors shadow-[0_0_12px_rgba(99,102,241,0.25)]">
-            <Plus size={13} /> Créneau
-          </button>
+          {!isMemberView && <>
+            <div className="w-px h-4 bg-[#1a1a1f] mx-1 hidden sm:block" />
+            <button onClick={() => openModal('task')} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0e0e11] hover:bg-[#1a1a1f] border border-[#1a1a1f] text-zinc-300 rounded-lg text-xs font-semibold transition-colors">
+              <Plus size={13} /> Tâche
+            </button>
+            <button onClick={() => openModal('event')} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors shadow-[0_0_12px_rgba(99,102,241,0.25)]">
+              <Plus size={13} /> Créneau
+            </button>
+          </>}
+          {isMemberView && (
+            <span className="text-[10px] text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-lg font-medium">
+              Lecture seule
+            </span>
+          )}
         </div>
       </div>
 
@@ -1236,14 +1274,18 @@ export function Planning() {
                 />
               ) : (
                 <TimeGrid
-                  days={days} tasks={tasks} events={events} clients={clients}
+                  days={days}
+                  tasks={isMemberView ? [] : tasks}
+                  events={isMemberView ? [] : events}
+                  clients={clients}
                   teamEvents={activeTeamEvents} teamTasks={activeTeamTasks}
                   nowPx={nowPx} showNow={showNow}
-                  onDayClick={(day, startMin, endMin) => openModal('event', format(day, 'yyyy-MM-dd'), startMin, endMin)}
+                  onDayClick={isMemberView ? () => {} : (day, startMin, endMin) => openModal('event', format(day, 'yyyy-MM-dd'), startMin, endMin)}
                   onDeleteTask={id => { deleteTask(id); toast('Tâche supprimée') }}
                   onCompleteTask={id => { updateTask(id, { status: 'done' }); toast('Terminée ✓') }}
                   onDeleteEvent={id => { deleteEvent(id); toast('Créneau supprimé') }}
-                  onDragStart={handleDragStart} onDrop={handleDrop}
+                  onDragStart={isMemberView ? () => {} : handleDragStart}
+                  onDrop={isMemberView ? () => {} : handleDrop}
                   onEditTask={openEditTask} onEditEvent={openEditEvent}
                   onShowTooltip={showTooltip} onHideTooltip={hideTooltip}
                 />
