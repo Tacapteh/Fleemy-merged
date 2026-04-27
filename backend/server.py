@@ -994,12 +994,32 @@ class InvoiceStatusUpdate(BaseModel):
     status: str
 
 
+class InlineDocumentItem(BaseModel):
+    description: str = ""
+    quantity: float = 1
+    unit_price: float = 0
+    total: float = 0
+
+
 class DocumentPdfRequest(BaseModel):
     type: Literal["quote", "invoice"]
+    # Optional inline document data so backend doesn't need to look up Firestore
+    client_name: Optional[str] = None
+    items: Optional[List[InlineDocumentItem]] = None
+    subtotal: Optional[float] = None
+    tax_rate: Optional[float] = None
+    tax_amount: Optional[float] = None
+    total: Optional[float] = None
+    notes: Optional[str] = None
+    invoice_number: Optional[str] = None
+    quote_number: Optional[str] = None
+    created_at: Optional[str] = None
+    due_date: Optional[str] = None
+    valid_until: Optional[str] = None
 
 
 class DocumentEmailRequest(DocumentPdfRequest):
-    to: EmailStr
+    to: Optional[EmailStr] = None
     subject: Optional[str] = None
     body: Optional[str] = None
 
@@ -3952,19 +3972,32 @@ async def export_document_pdf(
     user: Dict[str, Any] = Depends(verify_token),
 ):
     document_type = payload.type
-    collection_name = "quotes" if document_type == "quote" else "invoices"
-    doc_ref = user_col(user["uid"], collection_name).document(doc_id)
-    snap = await asyncio.to_thread(doc_ref.get)
 
-    if not getattr(snap, "exists", False):
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    document_data = snap.to_dict() or {}
-    owner_uid = document_data.get("uid")
-    if owner_uid and owner_uid != user["uid"]:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this document"
+    if payload.client_name is not None or payload.items is not None:
+        # Use inline document data from request body (frontend sends full data)
+        document_data: Dict[str, Any] = {
+            k: v for k, v in payload.dict().items()
+            if k != "type" and v is not None
+        }
+        if payload.items is not None:
+            document_data["items"] = [item.dict() for item in payload.items]
+        document_data.setdefault(
+            "invoice_number" if document_type == "invoice" else "quote_number",
+            doc_id,
         )
+    else:
+        # Fallback: look up Firestore (legacy path)
+        collection_name = "quotes" if document_type == "quote" else "invoices"
+        doc_ref = user_col(user["uid"], collection_name).document(doc_id)
+        snap = await asyncio.to_thread(doc_ref.get)
+        if not getattr(snap, "exists", False):
+            raise HTTPException(status_code=404, detail="Document not found")
+        document_data = snap.to_dict() or {}
+        owner_uid = document_data.get("uid")
+        if owner_uid and owner_uid != user["uid"]:
+            raise HTTPException(
+                status_code=403, detail="Not authorized to access this document"
+            )
 
     try:
         pdf_bytes = (
@@ -3994,29 +4027,41 @@ async def email_document_endpoint(
     user: Dict[str, Any] = Depends(verify_token),
 ):
     document_type = payload.type
-    collection_name = "quotes" if document_type == "quote" else "invoices"
-    doc_ref = user_col(user["uid"], collection_name).document(doc_id)
-    snap = await asyncio.to_thread(doc_ref.get)
 
-    if not getattr(snap, "exists", False):
+    recipient = payload.to
+    if not recipient:
         return JSONResponse(
-            status_code=404,
-            content={
-                "success": False,
-                "error": "Document not found",
-            },
+            status_code=400,
+            content={"success": False, "error": "Adresse email du destinataire manquante"},
         )
 
-    document_data = snap.to_dict() or {}
-    owner_uid = document_data.get("uid")
-    if owner_uid and owner_uid != user["uid"]:
-        return JSONResponse(
-            status_code=403,
-            content={
-                "success": False,
-                "error": "Not authorized to access this document",
-            },
+    if payload.client_name is not None or payload.items is not None:
+        document_data: Dict[str, Any] = {
+            k: v for k, v in payload.dict().items()
+            if k not in ("type", "to", "subject", "body") and v is not None
+        }
+        if payload.items is not None:
+            document_data["items"] = [item.dict() for item in payload.items]
+        document_data.setdefault(
+            "invoice_number" if document_type == "invoice" else "quote_number",
+            doc_id,
         )
+    else:
+        collection_name = "quotes" if document_type == "quote" else "invoices"
+        doc_ref = user_col(user["uid"], collection_name).document(doc_id)
+        snap = await asyncio.to_thread(doc_ref.get)
+        if not getattr(snap, "exists", False):
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "Document not found"},
+            )
+        document_data = snap.to_dict() or {}
+        owner_uid = document_data.get("uid")
+        if owner_uid and owner_uid != user["uid"]:
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "error": "Not authorized to access this document"},
+            )
 
     try:
         pdf_bytes = (
@@ -4061,7 +4106,7 @@ async def email_document_endpoint(
             send_document_email,
             document=document_data,
             document_type=document_type,
-            recipient=payload.to,
+            recipient=recipient,
             document_id=doc_id,
             pdf_bytes=pdf_bytes,
             subject=payload.subject,

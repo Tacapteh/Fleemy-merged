@@ -151,13 +151,41 @@ export function Documents() {
     setForm({ type: 'invoice', clientId: '', date: new Date().toISOString().split('T')[0], dueDate: '', notes: '', items: [{ ...EMPTY_ITEM }] })
   }
 
+  function buildDocPayload(d: FleemyDocument) {
+    const items = d.items.map(it => ({
+      description: it.description,
+      quantity: it.quantity,
+      unit_price: it.unitPrice,
+      total: it.quantity * it.unitPrice,
+    }))
+    const subtotal = items.reduce((s, it) => s + it.total, 0)
+    const taxAmount = d.items.reduce((s, it) => s + it.quantity * it.unitPrice * it.taxRate / 100, 0)
+    const total = subtotal + taxAmount
+    const taxRates = [...new Set(d.items.map(i => i.taxRate))]
+    const taxRate = taxRates.length === 1 ? taxRates[0] : Math.round(taxAmount / (subtotal || 1) * 1000) / 10
+
+    return {
+      type: d.type,
+      client_name: d.clientName,
+      ...(d.type === 'invoice' ? { invoice_number: d.id } : { quote_number: d.id }),
+      created_at: d.date,
+      ...(d.dueDate ? (d.type === 'invoice' ? { due_date: d.dueDate } : { valid_until: d.dueDate }) : {}),
+      items,
+      subtotal,
+      tax_rate: taxRate,
+      tax_amount: taxAmount,
+      total,
+      ...(d.notes ? { notes: d.notes } : {}),
+    }
+  }
+
   const downloadPdf = async (doc: FleemyDocument) => {
     try {
-      const response = await apiClient.post(`/documents/${doc.id}/pdf`, {}, { responseType: 'blob' })
+      const response = await apiClient.post(`/documents/${doc.id}/pdf`, buildDocPayload(doc), { responseType: 'blob' })
       const url = URL.createObjectURL(response.data)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${doc.type}-${doc.id}.pdf`
+      a.download = `${doc.type === 'invoice' ? 'facture' : 'devis'}-${doc.id}.pdf`
       a.click()
       URL.revokeObjectURL(url)
       toast('PDF téléchargé')
@@ -167,8 +195,14 @@ export function Documents() {
   }
 
   const sendByEmail = async (doc: FleemyDocument) => {
+    const client = clients.find(c => c.id === doc.clientId)
+    const email = client?.email
+    if (!email) {
+      toast('Ajoutez l\'email du client pour envoyer par email', 'error')
+      return
+    }
     try {
-      await apiClient.post(`/documents/${doc.id}/send-email`)
+      await apiClient.post(`/documents/${doc.id}/email`, { ...buildDocPayload(doc), to: email })
       await updateDocument(doc.id, { status: 'sent' })
       toast('Email envoyé')
     } catch {
