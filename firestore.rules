@@ -22,6 +22,16 @@ service cloud.firestore {
       );
     }
 
+    // True if request.auth.uid and ownerUid share the same teamId via /users/{uid}.teamId
+    function shareTeam(ownerUid) {
+      return isAuth()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && exists(/databases/$(database)/documents/users/$(ownerUid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId
+           == get(/databases/$(database)/documents/users/$(ownerUid)).data.teamId;
+    }
+
     // ---- Users ----
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
@@ -39,7 +49,8 @@ service cloud.firestore {
     }
 
     match /events/{docId} {
-      allow read: if ownsDoc();
+      // Owner has full access; teammates can read (for team planning view)
+      allow read: if ownsDoc() || shareTeam(resource.data.userId);
       allow create: if ownsNewDoc();
       allow update, delete: if ownsDoc();
     }
@@ -102,13 +113,6 @@ service cloud.firestore {
         allow read: if isTeamMember(teamId);
         allow write: if false;
       }
-    }
-
-    // ---- Historical events (imported planning) ----
-    match /historicalEvents/{docId} {
-      allow read: if ownsDoc();
-      allow create: if ownsNewDoc();
-      allow update, delete: if ownsDoc();
     }
 
     // ---- Daily todos ----
