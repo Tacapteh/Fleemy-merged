@@ -10,6 +10,7 @@ import { Clients } from './components/Clients'
 import { Notes } from './components/Notes'
 import { Documents } from './components/Documents'
 import { Settings } from './components/Settings'
+import { OnboardingModal, useOnboarding } from './components/OnboardingModal'
 
 type Tab = 'dashboard' | 'planning' | 'budget' | 'clients' | 'notes' | 'documents' | 'settings'
 
@@ -17,6 +18,7 @@ export function App() {
   const { user, authLoading } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { show: showOnboarding, complete: completeOnboarding } = useOnboarding()
 
   if (authLoading) {
     return (
@@ -69,6 +71,7 @@ export function App() {
           {renderContent()}
         </main>
       </div>
+      {showOnboarding && <OnboardingModal onDone={completeOnboarding} />}
     </div>
   )
 }
