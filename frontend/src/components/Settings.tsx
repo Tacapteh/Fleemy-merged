@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Save, Clock, DollarSign, Mail, Users, Copy, LogIn, Check, ChevronRight, Upload, Trash2, Plus, X, Search } from 'lucide-react'
+import { Save, Clock, DollarSign, Mail, Users, Copy, LogIn, Check, ChevronRight, Upload, Trash2, Plus, X, Search, Download } from 'lucide-react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { useTeam } from '../hooks/useTeam'
 import { useHistoricalEvents } from '../hooks/useHistoricalEvents'
 import { useClients } from '../hooks/useClients'
+import { useEvents } from '../hooks/useEvents'
+import { useTasks } from '../hooks/useTasks'
+import { useBudget } from '../hooks/useBudget'
 import { useToast } from '../context/ToastContext'
 import { parseExcelAllSheets, aiRowToEvent, type AIImportedRow } from '../utils/importPlanning'
 import type { AppSettings } from '../types'
@@ -26,7 +29,23 @@ const DEFAULTS: AppSettings = {
   },
 }
 
-type Tab = 'general' | 'billing' | 'email' | 'team' | 'import'
+type Tab = 'general' | 'billing' | 'email' | 'team' | 'import' | 'export'
+
+function toCsv(headers: string[], rows: (string | number | boolean | undefined)[][]): string {
+  const escape = (v: string | number | boolean | undefined) => {
+    const s = v === undefined || v === null ? '' : String(v)
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  return [headers, ...rows].map(row => row.map(escape).join(',')).join('\n')
+}
+
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
 function Toggle({ on, onChange, accent = 'emerald' }: { on: boolean; onChange: (v: boolean) => void; accent?: string }) {
@@ -83,6 +102,9 @@ export function Settings() {
   const { team, loading: tl, error: te, soloMode, setSoloMode, createTeam, joinTeam, leaveTeam } = useTeam()
   const { historicalEvents, addHistoricalEvents, clearHistoricalEvents } = useHistoricalEvents()
   const { clients, addClient } = useClients()
+  const { events } = useEvents()
+  const { tasks } = useTasks()
+  const { transactions } = useBudget()
   const { toast } = useToast()
 
   const [settings, setSettings] = useState<AppSettings>(DEFAULTS)
@@ -149,7 +171,40 @@ export function Settings() {
     { id: 'email',    label: 'Emails',     icon: <Mail size={15} /> },
     { id: 'team',     label: 'Équipe',     icon: <Users size={15} /> },
     { id: 'import',   label: 'Import',     icon: <Upload size={15} /> },
+    { id: 'export',   label: 'Export',     icon: <Download size={15} /> },
   ]
+
+  const exportEvents = () => {
+    const csv = toCsv(
+      ['ID', 'Date', 'Titre', 'Client', 'Début', 'Fin', 'Facturable', 'Taux €/h', 'Statut paiement'],
+      events.map(e => [e.id, e.date, e.title, e.clientName ?? '', e.startTime, e.endTime, e.isBillable, e.hourlyRate ?? '', e.paymentStatus])
+    )
+    downloadCsv('evenements.csv', csv)
+  }
+
+  const exportTasks = () => {
+    const csv = toCsv(
+      ['ID', 'Date', 'Titre', 'Statut', 'Priorité', 'Description'],
+      tasks.map(t => [t.id, t.date, t.title, t.status, t.priority, t.description ?? ''])
+    )
+    downloadCsv('taches.csv', csv)
+  }
+
+  const exportClients = () => {
+    const csv = toCsv(
+      ['ID', 'Nom', 'Entreprise', 'Email', 'Téléphone', 'Statut', 'Taux €/h', 'Dernier contact'],
+      clients.map(c => [c.id, c.name, c.company, c.email, c.phone ?? '', c.status, c.hourlyRate ?? '', c.lastContact])
+    )
+    downloadCsv('clients.csv', csv)
+  }
+
+  const exportTransactions = () => {
+    const csv = toCsv(
+      ['ID', 'Date', 'Montant €', 'Type', 'Catégorie', 'Description'],
+      transactions.map(t => [t.id, t.date, t.amount, t.type, t.category, t.description])
+    )
+    downloadCsv('transactions.csv', csv)
+  }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -725,20 +780,81 @@ export function Settings() {
           </div>
         )}
 
+        {/* ── Export ── */}
+        {activeTab === 'export' && (
+          <div>
+            <h2 className="text-lg font-bold text-white mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Export des données</h2>
+            <p className="text-sm text-zinc-600 mb-6">Téléchargez vos données au format CSV</p>
+
+            <div className="space-y-3">
+              {[
+                {
+                  label: 'Événements',
+                  hint: `${events.length} événement${events.length !== 1 ? 's' : ''}`,
+                  color: 'indigo',
+                  onClick: exportEvents,
+                },
+                {
+                  label: 'Tâches',
+                  hint: `${tasks.length} tâche${tasks.length !== 1 ? 's' : ''}`,
+                  color: 'amber',
+                  onClick: exportTasks,
+                },
+                {
+                  label: 'Clients',
+                  hint: `${clients.length} client${clients.length !== 1 ? 's' : ''}`,
+                  color: 'blue',
+                  onClick: exportClients,
+                },
+                {
+                  label: 'Transactions',
+                  hint: `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`,
+                  color: 'emerald',
+                  onClick: exportTransactions,
+                },
+              ].map(({ label, hint, color, onClick }) => (
+                <div key={label} className="bg-[#0e0e11] border border-[#1a1a1f] rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-200">{label}</p>
+                    <p className="text-xs text-zinc-600 mt-0.5">{hint}</p>
+                  </div>
+                  <button
+                    onClick={onClick}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors border ${
+                      color === 'indigo' ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20' :
+                      color === 'amber'  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20' :
+                      color === 'blue'   ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' :
+                                           'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                    }`}
+                  >
+                    <Download size={13} /> CSV
+                  </button>
+                </div>
+              ))}
+
+              <div className="bg-[#0e0e11] border border-[#1a1a1f] rounded-2xl px-5 py-4">
+                <p className="text-xs text-zinc-600">Les fichiers CSV sont encodés en UTF-8 avec BOM pour une compatibilité Excel optimale.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mobile save button */}
-        <div className="sm:hidden pt-4 pb-6">
-          <button
-            onClick={handleSave}
-            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all ${
-              saved
-                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
-                : 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-[0_0_16px_rgba(16,185,129,0.2)]'
-            }`}
-          >
-            {saved ? <Check size={14} /> : <Save size={14} />}
-            {saved ? 'Sauvegardé' : 'Sauvegarder'}
-          </button>
-        </div>
+        {activeTab !== 'import' && activeTab !== 'export' && (
+          <div className="sm:hidden pt-4 pb-6">
+            <button
+              onClick={handleSave}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all ${
+                saved
+                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-[0_0_16px_rgba(16,185,129,0.2)]'
+              }`}
+            >
+              {saved ? <Check size={14} /> : <Save size={14} />}
+              {saved ? 'Sauvegardé' : 'Sauvegarder'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
