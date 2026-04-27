@@ -11,6 +11,7 @@ import { Notes } from './components/Notes'
 import { Documents } from './components/Documents'
 import { Settings } from './components/Settings'
 import { OnboardingModal, useOnboarding } from './components/OnboardingModal'
+import { TimerWidget } from './components/TimerWidget'
 
 type Tab = 'dashboard' | 'planning' | 'budget' | 'clients' | 'notes' | 'documents' | 'settings'
 
@@ -73,6 +74,7 @@ export function App() {
         </main>
       </div>
       {showOnboarding && <OnboardingModal onDone={completeOnboarding} />}
+      <TimerWidget />
     </div>
   )
 }
