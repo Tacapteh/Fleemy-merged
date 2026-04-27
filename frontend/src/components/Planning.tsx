@@ -896,6 +896,8 @@ export function Planning() {
     hourlyRate: '' as number | '',
     useSegmentRates: false,
     segments: [] as { startTime: string; endTime: string; hourlyRate: number | '' }[],
+    repeatType: 'none' as 'none' | 'weekly' | 'monthly',
+    repeatCount: 4,
   })
 
   const resetTForm = () => setTForm({
@@ -906,7 +908,7 @@ export function Planning() {
     prixM3: '', nbM3: '', prixFixeEvacuation: '',
     deplacementMode: 'km', evacuationMode: 'volume',
   })
-  const resetEForm = () => setEForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid', useCustomRate: false, hourlyRate: '', useSegmentRates: false, segments: [] })
+  const resetEForm = () => setEForm({ title: '', date: format(new Date(), 'yyyy-MM-dd'), startTime: '09:00', endTime: '10:00', clientId: '', isBillable: true, paymentStatus: 'unpaid', useCustomRate: false, hourlyRate: '', useSegmentRates: false, segments: [], repeatType: 'none', repeatCount: 4 })
 
   const days = useMemo(() => {
     if (view === 'day') return [current]
@@ -1092,8 +1094,21 @@ export function Planning() {
         startTime: s.startTime, endTime: s.endTime, hourlyRate: Number(s.hourlyRate)
       }))
     }
-    if (editingId) { await updateEvent(editingId, base as Partial<EventItem>); toast('Créneau modifié') }
-    else { await addEvent(base as Omit<EventItem, 'id'>); toast('Créneau créé') }
+    if (editingId) {
+      await updateEvent(editingId, base as Partial<EventItem>)
+      toast('Créneau modifié')
+    } else if (eForm.repeatType !== 'none') {
+      const count = Math.max(1, Math.min(52, eForm.repeatCount))
+      const baseDate = new Date(eForm.date)
+      for (let i = 0; i < count; i++) {
+        const d = eForm.repeatType === 'weekly' ? addWeeks(baseDate, i) : addMonths(baseDate, i)
+        await addEvent({ ...base, date: format(d, 'yyyy-MM-dd') } as Omit<EventItem, 'id'>)
+      }
+      toast(`${count} créneau${count > 1 ? 'x' : ''} créé${count > 1 ? 's' : ''}`)
+    } else {
+      await addEvent(base as Omit<EventItem, 'id'>)
+      toast('Créneau créé')
+    }
     closeModal(); resetEForm()
   }
 
@@ -1651,9 +1666,35 @@ export function Planning() {
                     </div>
                   )}
 
+                  {/* Repeat — only on new events */}
+                  {!editingId && (
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="flex-1 bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-3 py-2 text-sm text-zinc-400 focus:outline-none focus:border-indigo-500/40 transition-all"
+                        value={eForm.repeatType}
+                        onChange={e => setEForm(f => ({ ...f, repeatType: e.target.value as 'none' | 'weekly' | 'monthly' }))}
+                      >
+                        <option value="none">Ne pas répéter</option>
+                        <option value="weekly">Chaque semaine</option>
+                        <option value="monthly">Chaque mois</option>
+                      </select>
+                      {eForm.repeatType !== 'none' && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <input
+                            type="number" min={2} max={52}
+                            className="w-16 bg-[#0a0a0d] border border-[#1e1e24] rounded-xl px-2 py-2 text-sm text-white text-center focus:outline-none focus:border-indigo-500/40 transition-all"
+                            value={eForm.repeatCount}
+                            onChange={e => setEForm(f => ({ ...f, repeatCount: Math.max(2, Math.min(52, Number(e.target.value))) }))}
+                          />
+                          <span className="text-xs text-zinc-600">fois</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <button onClick={saveEvent}
                     className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors shadow-[0_2px_12px_rgba(99,102,241,0.25)]">
-                    {editingId ? 'Modifier le créneau' : 'Créer le créneau'}
+                    {editingId ? 'Modifier le créneau' : (eForm.repeatType !== 'none' ? `Créer ${eForm.repeatCount}x` : 'Créer le créneau')}
                   </button>
                 </div>
               )}
