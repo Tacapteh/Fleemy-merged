@@ -54,6 +54,7 @@ export function App() {
       <Sidebar
         activeTab={activeTab}
         onTabChange={tab => setActiveTab(tab)}
+        onNavigate={navigate}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(o => !o)}
         user={user}

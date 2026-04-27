@@ -14,12 +14,14 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { User } from 'firebase/auth'
 import { useAuth } from '../hooks/useAuth'
+import { GlobalSearch } from './GlobalSearch'
 
 type Tab = 'dashboard' | 'planning' | 'budget' | 'clients' | 'notes' | 'documents' | 'settings'
 
 interface SidebarProps {
   activeTab: Tab
   onTabChange: (tab: Tab) => void
+  onNavigate: (tab: string) => void
   isOpen: boolean
   onToggle: () => void
   user: User
@@ -35,7 +37,7 @@ const navItems: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'settings', label: 'Paramètres', icon: Settings },
 ]
 
-export function Sidebar({ activeTab, onTabChange, isOpen, onToggle, user }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, onNavigate, isOpen, onToggle, user }: SidebarProps) {
   const { logout } = useAuth()
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024)
   useEffect(() => {
@@ -75,8 +77,13 @@ export function Sidebar({ activeTab, onTabChange, isOpen, onToggle, user }: Side
           <span className="text-lg font-bold text-white">Fleemy</span>
         </div>
 
+        {/* Search */}
+        <div className="px-4 pt-3 pb-1">
+          <GlobalSearch onNavigate={tab => { onNavigate(tab); if (isOpen) onToggle() }} />
+        </div>
+
         {/* Nav items */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-4 pt-2 space-y-1 overflow-y-auto">
           {navItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
