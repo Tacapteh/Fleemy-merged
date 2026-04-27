@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { User } from 'firebase/auth'
 import { useAuth } from '../hooks/useAuth'
 import { GlobalSearch } from './GlobalSearch'
+import { NotificationBell } from './NotificationBell'
 
 type Tab = 'dashboard' | 'planning' | 'budget' | 'clients' | 'notes' | 'documents' | 'settings'
 
@@ -101,6 +102,11 @@ export function Sidebar({ activeTab, onTabChange, onNavigate, isOpen, onToggle, 
             </button>
           ))}
         </nav>
+
+        {/* Notifications */}
+        <div className="px-4 pb-2">
+          <NotificationBell />
+        </div>
 
         {/* User profile */}
         <div className="p-4 border-t border-zinc-800">
