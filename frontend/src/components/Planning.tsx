@@ -79,6 +79,43 @@ const PAYMENT_STYLE: Record<string, { border: string; bg: string; title: string;
   'not-worked':{ border: '#3f3f46', bg: 'rgba(63,63,70,0.12)',                    title: '#a1a1aa', sub: '#71717a' },
 }
 
+// ─── Overlap layout ──────────────────────────────────────────────────────────
+function computeOverlapLayout(
+  items: Array<{ id: string; s: number; e: number }>
+): Map<string, { left: number; width: number }> {
+  const result = new Map<string, { left: number; width: number }>()
+  if (items.length === 0) return result
+
+  const sorted = [...items].sort((a, b) => a.s - b.s || b.e - a.e)
+  let clusterEnd = -Infinity
+  let cluster: typeof sorted = []
+  const clusters: (typeof sorted)[] = []
+
+  for (const item of sorted) {
+    if (item.s >= clusterEnd && cluster.length > 0) { clusters.push(cluster); cluster = [] }
+    cluster.push(item)
+    clusterEnd = Math.max(clusterEnd, item.e)
+  }
+  if (cluster.length > 0) clusters.push(cluster)
+
+  for (const cls of clusters) {
+    const colEnds: number[] = []
+    const itemCols = new Map<string, number>()
+    for (const item of cls) {
+      let c = colEnds.findIndex(end => end <= item.s)
+      if (c === -1) c = colEnds.length
+      colEnds[c] = item.e
+      itemCols.set(item.id, c)
+    }
+    const n = colEnds.length
+    for (const item of cls) {
+      const c = itemCols.get(item.id) ?? 0
+      result.set(item.id, { left: c / n, width: 1 / n })
+    }
+  }
+  return result
+}
+
 // ─── Drag state ──────────────────────────────────────────────────────────────
 interface DragInfo { id: string; kind: 'task' | 'event'; offsetMin: number; durationMin: number }
 
@@ -477,6 +514,17 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
             const dayTeamEvents = teamEvents.filter(e => e.date === ds)
             const dayTeamTasks = teamTasks.filter(t => t.date === ds)
 
+            // Compute non-overlapping column layout for own events + tasks
+            const layoutMap = computeOverlapLayout([
+              ...dayEvents.map(e => ({ id: e.id, s: toMin(e.startTime ?? '09:00'), e: toMin(e.endTime ?? '10:00') })),
+              ...dayTasks.map(t => ({ id: t.id, s: toMin(t.startTime ?? '09:00'), e: toMin(t.endTime ?? '10:00') })),
+            ])
+            // Layout for team items
+            const teamLayoutMap = computeOverlapLayout([
+              ...dayTeamEvents.map(e => ({ id: e.id, s: toMin(e.startTime ?? '09:00'), e: toMin(e.endTime ?? '10:00') })),
+              ...dayTeamTasks.map(t => ({ id: t.id, s: toMin(t.startTime ?? '09:00'), e: toMin(t.endTime ?? '10:00') })),
+            ])
+
             return (
               <div key={di}
                 className={`relative border-r border-[#1a1a1f] last:border-r-0 cursor-crosshair ${isToday(day) ? 'bg-emerald-500/[0.015]' : ''}`}
@@ -522,6 +570,7 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                     t.status !== 'done' && overlaps(evRange, { s: toMin(t.startTime ?? '09:00'), e: toMin(t.endTime ?? '10:00') })
                   ).slice(0, 3)
                   const rev = eventRevenue(ev, clients)
+                  const lay = layoutMap.get(ev.id) ?? { left: 0, width: 1 }
 
                   return (
                     <div key={ev.id} draggable data-item="true"
@@ -529,8 +578,8 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                       onClick={e => { e.stopPropagation(); onEditEvent(ev) }}
                       onMouseEnter={e => onShowTooltip(ev, 'event', e.clientX, e.clientY)}
                       onMouseLeave={onHideTooltip}
-                      className="absolute left-1 right-1 rounded-xl overflow-hidden cursor-pointer group select-none z-10 transition-transform duration-150 hover:scale-[1.02] hover:shadow-xl hover:z-20"
-                      style={{ top: top + 1, height: h - 2, background: ps.bg, borderLeft: `3px solid ${ps.border}`, boxShadow: `0 1px 8px ${ps.border}30` }}
+                      className="absolute rounded-xl overflow-hidden cursor-pointer group select-none z-10 transition-transform duration-150 hover:scale-[1.02] hover:shadow-xl hover:z-20"
+                      style={{ top: top + 1, height: h - 2, left: `calc(${lay.left * 100}% + 2px)`, width: `calc(${lay.width * 100}% - 4px)`, background: ps.bg, borderLeft: `3px solid ${ps.border}`, boxShadow: `0 1px 8px ${ps.border}30` }}
                     >
                       <div className="px-2 py-1 h-full relative">
                         <p className="text-[11px] font-semibold truncate leading-tight" style={{ color: ps.title }}>{ev.title}</p>
@@ -582,6 +631,7 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                   const done = task.status === 'done'
                   const taskColor = task.color || (task.priority === 1 ? '#ef4444' : task.priority === 2 ? '#f59e0b' : '#10b981')
                   const TaskIconCmp = task.icon ? ICON_MAP[task.icon] : null
+                  const lay = layoutMap.get(task.id) ?? { left: 0, width: 1 }
 
                   return (
                     <div key={task.id} draggable={!done} data-item="true"
@@ -589,8 +639,8 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                       onClick={e => { e.stopPropagation(); onEditTask(task) }}
                       onMouseEnter={e => onShowTooltip(task, 'task', e.clientX, e.clientY)}
                       onMouseLeave={onHideTooltip}
-                      className={`absolute left-1 right-1 rounded-xl overflow-hidden select-none z-0 group flex transition-transform duration-150 ${done ? 'opacity-40 pointer-events-auto cursor-default' : 'cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:z-20'}`}
-                      style={{ top: top + 1, height: h - 2, background: taskColor + '12', borderLeft: `3px solid ${taskColor}` }}
+                      className={`absolute rounded-xl overflow-hidden select-none z-0 group flex transition-transform duration-150 ${done ? 'opacity-40 pointer-events-auto cursor-default' : 'cursor-pointer hover:scale-[1.02] hover:shadow-xl hover:z-20'}`}
+                      style={{ top: top + 1, height: h - 2, left: `calc(${lay.left * 100}% + 2px)`, width: `calc(${lay.width * 100}% - 4px)`, background: taskColor + '12', borderLeft: `3px solid ${taskColor}` }}
                     >
                       {/* Icon strip */}
                       <div className="flex items-start pt-1 pl-1 shrink-0">
@@ -649,10 +699,11 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                 {dayTeamEvents.map(ev => {
                   const top = toPx(toMin(ev.startTime ?? '09:00'))
                   const h = Math.max(24, toPx(toMin(ev.endTime ?? '10:00')) - top)
+                  const lay = teamLayoutMap.get(ev.id) ?? { left: 0, width: 1 }
                   return (
                     <div key={ev.id} data-item="true"
-                      className="absolute left-1 right-1 rounded-xl overflow-hidden select-none z-[5] opacity-50 pointer-events-auto cursor-default"
-                      style={{ top: top + 1, height: h - 2, background: '#3f3f4618', border: '1.5px dashed #3f3f46', borderLeft: '3px solid #6366f1' }}
+                      className="absolute rounded-xl overflow-hidden select-none z-[5] opacity-50 pointer-events-auto cursor-default"
+                      style={{ top: top + 1, height: h - 2, left: `calc(${lay.left * 100}% + 2px)`, width: `calc(${lay.width * 100}% - 4px)`, background: '#3f3f4618', border: '1.5px dashed #3f3f46', borderLeft: '3px solid #6366f1' }}
                       onMouseEnter={e => onShowTooltip(ev, 'event', e.clientX, e.clientY)}
                       onMouseLeave={onHideTooltip}
                     >
@@ -669,10 +720,11 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                   const top = toPx(toMin(task.startTime ?? '09:00'))
                   const h = Math.max(18, toPx(toMin(task.endTime ?? '10:00')) - top)
                   const tc = task.color || '#6366f1'
+                  const lay = teamLayoutMap.get(task.id) ?? { left: 0, width: 1 }
                   return (
                     <div key={task.id} data-item="true"
-                      className="absolute left-1 right-1 rounded-xl overflow-hidden select-none z-[4] opacity-40 pointer-events-auto cursor-default"
-                      style={{ top: top + 1, height: h - 2, background: tc + '0a', border: `1px dashed ${tc}50`, borderLeft: `2px solid ${tc}80` }}
+                      className="absolute rounded-xl overflow-hidden select-none z-[4] opacity-40 pointer-events-auto cursor-default"
+                      style={{ top: top + 1, height: h - 2, left: `calc(${lay.left * 100}% + 2px)`, width: `calc(${lay.width * 100}% - 4px)`, background: tc + '0a', border: `1px dashed ${tc}50`, borderLeft: `2px solid ${tc}80` }}
                       onMouseEnter={e => onShowTooltip(task, 'task', e.clientX, e.clientY)}
                       onMouseLeave={onHideTooltip}
                     >
@@ -1149,8 +1201,18 @@ export function Planning() {
     return days.map(d => format(d, 'yyyy-MM-dd'))
   }, [view, current, days])
 
-  const viewedEvents = useMemo(() => events.filter(e => viewedDates.includes(e.date)), [events, viewedDates])
-  const viewedTasks = useMemo(() => tasks.filter(t => viewedDates.includes(t.date)), [tasks, viewedDates])
+  // In member view, show the selected member's data instead of own data
+  const displayedEvents = useMemo(
+    () => isMemberView ? (activeTeamEvents as unknown as EventItem[]) : events,
+    [isMemberView, activeTeamEvents, events]
+  )
+  const displayedTasks = useMemo(
+    () => isMemberView ? (activeTeamTasks as unknown as TaskItem[]) : tasks,
+    [isMemberView, activeTeamTasks, tasks]
+  )
+
+  const viewedEvents = useMemo(() => displayedEvents.filter(e => viewedDates.includes(e.date)), [displayedEvents, viewedDates])
+  const viewedTasks = useMemo(() => displayedTasks.filter(t => viewedDates.includes(t.date)), [displayedTasks, viewedDates])
 
   const financeStats = useMemo(() => calcFinance(viewedEvents, clients), [viewedEvents, clients])
   const tasksDone = useMemo(() => viewedTasks.filter(t => t.status === 'done').length, [viewedTasks])
@@ -1270,8 +1332,8 @@ export function Planning() {
             >
               {view === 'month' ? (
                 <MonthView
-                  days={days} refDate={current} tasks={tasks} events={events} clients={clients}
-                  historicalEvents={historicalEvents}
+                  days={days} refDate={current} tasks={displayedTasks} events={displayedEvents} clients={clients}
+                  historicalEvents={isMemberView ? [] : historicalEvents}
                   onEditTask={openEditTask} onEditEvent={openEditEvent}
                   onCreateEvent={d => openModal('event', format(d, 'yyyy-MM-dd'))}
                   onNavigateWeek={d => { setCurrent(d); setView('week') }}
@@ -1280,8 +1342,8 @@ export function Planning() {
               ) : (
                 <TimeGrid
                   days={days}
-                  tasks={isMemberView ? [] : tasks}
-                  events={isMemberView ? [] : events}
+                  tasks={isMemberView ? [] : displayedTasks}
+                  events={isMemberView ? [] : displayedEvents}
                   clients={clients}
                   teamEvents={activeTeamEvents} teamTasks={activeTeamTasks}
                   nowPx={nowPx} showNow={showNow}
