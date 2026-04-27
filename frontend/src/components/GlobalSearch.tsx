@@ -32,6 +32,9 @@ interface Props {
   onNavigate: (tab: string) => void
 }
 
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(navigator.platform)
+const KB_LABEL = isMac ? '⌘K' : 'Ctrl+K'
+
 export function GlobalSearch({ onNavigate }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -130,7 +133,7 @@ export function GlobalSearch({ onNavigate }: Props) {
         <Search size={16} />
         <span className="flex-1 text-left">Rechercher…</span>
         <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-600 group-hover:bg-zinc-700 border border-zinc-700 font-mono">
-          ⌘K
+          {KB_LABEL}
         </kbd>
       </button>
 
