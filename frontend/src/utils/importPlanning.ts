@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx'
 import type { EventItem } from '../types'
-import { IMPORT_SYSTEM_PROMPT } from './importPrompt'
 
 // ── AI import types ──────────────────────────────────────────────────────────
 
@@ -42,38 +41,31 @@ export function aiRowToEvent(row: AIImportedRow): Omit<EventItem, 'id'> {
 }
 
 export async function parseWithAI(fileContent: string, fileName: string): Promise<AIImportedRow[]> {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY manquante')
-
-  const userMessage = `Voici le contenu du fichier "${fileName}" à analyser :\n\n${fileContent}`
+  const { auth } = await import('../services/firebase')
+  const token = (await auth.currentUser?.getIdToken()) ?? ''
+  const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30000)
+  const timeout = setTimeout(() => controller.abort(), 60000)
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(`${apiUrl}/api/import/parse`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+        'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 8000,
-        system: IMPORT_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
+      body: JSON.stringify({ content: fileContent, filename: fileName }),
       signal: controller.signal,
     })
 
-    if (!response.ok) throw new Error(`API ${response.status}`)
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}))
+      if (detail?.detail === 'timeout') throw new Error('timeout')
+      throw new Error(`API ${response.status}`)
+    }
 
-    const data = await response.json()
-    const text: string = data.content?.[0]?.text ?? '[]'
-    const clean = text.replace(/```json|```/g, '').trim()
-    const parsed = JSON.parse(clean)
+    const parsed = await response.json()
     return Array.isArray(parsed) ? parsed : []
   } catch (err) {
     if ((err as Error).name === 'AbortError') throw new Error('timeout')

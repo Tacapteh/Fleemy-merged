@@ -5992,6 +5992,85 @@ async def seed_budget_data(user: Dict[str, Any] = Depends(verify_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── Import AI proxy ────────────────────────────────────────────────────────────
+
+IMPORT_SYSTEM_PROMPT = """Tu es un assistant spécialisé dans l'analyse de plannings professionnels.
+On te fournit le contenu brut d'un fichier de planning (Excel converti en texte, CSV, JSON, etc.).
+
+Ton rôle : extraire toutes les entrées de travail et les retourner UNIQUEMENT en JSON valide, sans aucun texte autour.
+
+Format de sortie attendu (tableau JSON) :
+[
+  {
+    "clientName": "Nom du client ou projet",
+    "date": "YYYY-MM-DD",
+    "hours": 3.5,
+    "amount": 52.5,
+    "hourlyRate": 15,
+    "notes": "info supplémentaire optionnelle",
+    "isExpense": false
+  }
+]
+
+Règles d'extraction :
+- Si tu vois un tableau avec des colonnes = jours et des lignes = clients/projets → chaque cellule non vide est une entrée
+- Si tu vois des lignes avec date + client + heures → extraire directement
+- Si tu vois des totaux, des lignes vides, des en-têtes → les ignorer
+- Si le taux horaire est détectable (ex: colonne €/h, ou ratio montant/heures) → l'utiliser, sinon mettre 15 par défaut
+- Les valeurs négatives = dépenses/coûts → mettre isExpense: true et hours en valeur absolue, amount en valeur absolue
+- Les dates incomplètes (ex: juste "15" dans une colonne "Mars 2025") → reconstruire la date complète YYYY-MM-DD
+- Si plusieurs onglets/sections → les traiter tous
+- Si le format est ambigu → faire la meilleure inférence possible, ne pas échouer
+- Toujours retourner un tableau JSON valide, même vide [] si rien de lisible"""
+
+
+class ImportParseRequest(BaseModel):
+    content: str
+    filename: str
+
+
+@api_router.post("/import/parse")
+async def import_parse(
+    body: ImportParseRequest,
+    user: Dict[str, Any] = Depends(verify_token),
+):
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not anthropic_key:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured on server")
+
+    user_message = f'Voici le contenu du fichier "{body.filename}" à analyser :\n\n{body.content}'
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": anthropic_key,
+                    "anthropic-version": "2023-06-01",
+                },
+                json={
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 8000,
+                    "system": IMPORT_SYSTEM_PROMPT,
+                    "messages": [{"role": "user", "content": user_message}],
+                },
+            )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="timeout")
+
+    if not resp.is_success:
+        raise HTTPException(status_code=502, detail=f"Anthropic API {resp.status_code}")
+
+    data = resp.json()
+    text: str = (data.get("content") or [{}])[0].get("text") or "[]"
+    clean = text.replace("```json", "").replace("```", "").strip()
+    try:
+        parsed = json.loads(clean)
+        return parsed if isinstance(parsed, list) else []
+    except json.JSONDecodeError:
+        return []
+
 
 # Include the router in the main app
 app.include_router(api_router)
