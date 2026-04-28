@@ -966,6 +966,8 @@ export function Planning() {
       hourlyRate: ev.hourlyRate ?? '',
       useSegmentRates: !!(ev.rateSegments?.length),
       segments: ev.rateSegments?.map(s => ({ startTime: s.startTime, endTime: s.endTime, hourlyRate: s.hourlyRate })) ?? [],
+      repeatType: 'none' as const,
+      repeatCount: 4,
     })
     setModal(true)
   }

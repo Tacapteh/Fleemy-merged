@@ -37,7 +37,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const { documents } = useDocuments()
 
   const today = new Date()
-  const todayStr = format(today, 'yyyy-MM-dd')
   const monthStart = startOfMonth(today)
   const monthEnd = endOfMonth(today)
 
@@ -233,7 +232,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 10, fontSize: 12 }}
                 labelStyle={{ color: '#a1a1aa' }}
                 itemStyle={{ color: '#e4e4e7' }}
-                formatter={(v: number) => [`${v.toLocaleString('fr-FR')} €`]}
+                formatter={(v) => [`${Number(v).toLocaleString('fr-FR')} €`]}
               />
               <Area type="monotone" dataKey="planning" name="Planning" stroke="#6366f1" fill="url(#gPlanning)" strokeWidth={2} dot={false} />
               <Area type="monotone" dataKey="encaissé" name="Encaissé" stroke="#10b981" fill="url(#gEncaisse)" strokeWidth={2} dot={false} />
