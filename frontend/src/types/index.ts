@@ -102,7 +102,10 @@ export interface Note {
   isDone: boolean
   priority: Priority
   date: string
+  time?: string        // HH:mm creation time
   tags?: string[]
+  reminderAt?: string  // ISO datetime "YYYY-MM-DDTHH:mm"
+  reminderFired?: boolean
 }
 
 export interface DocumentItem {

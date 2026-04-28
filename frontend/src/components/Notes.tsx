@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, Trash2, Search, Flag, CheckSquare, Square, StickyNote } from 'lucide-react'
+import { Plus, X, Trash2, Search, Flag, CheckSquare, Square, StickyNote, Bell, BellOff, Clock } from 'lucide-react'
 import { useNotes } from '../hooks/useNotes'
 import { useToast } from '../context/ToastContext'
+import { useNoteReminders, requestNotificationPermission } from '../hooks/useNoteReminders'
 import { EmptyState } from './ui/EmptyState'
 import type { Note } from '../types'
 
@@ -15,9 +16,14 @@ const PRIORITY_COLOR: Record<number, string> = {
   3: 'text-zinc-500',
 }
 
+function nowTime() { return new Date().toTimeString().slice(0, 5) }
+function nowDate() { return new Date().toISOString().split('T')[0] }
+
 export function Notes() {
   const { notes, addNote, updateNote, deleteNote } = useNotes()
   const { toast } = useToast()
+
+  useNoteReminders(notes, updateNote)
 
   const [filter, setFilter] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
@@ -30,17 +36,21 @@ export function Notes() {
     priority: 2 as 1 | 2 | 3,
     tags: '',
     isDone: false,
-    date: new Date().toISOString().split('T')[0],
+    date: nowDate(),
+    time: nowTime(),
+    reminderDate: '',
+    reminderTime: '',
   })
 
   const openAdd = () => {
     setEditingId(null)
-    setForm({ title: '', content: '', priority: 2, tags: '', isDone: false, date: new Date().toISOString().split('T')[0] })
+    setForm({ title: '', content: '', priority: 2, tags: '', isDone: false, date: nowDate(), time: nowTime(), reminderDate: '', reminderTime: '' })
     setShowForm(true)
   }
 
   const openEdit = (note: Note) => {
     setEditingId(note.id)
+    const [rDate, rTime] = note.reminderAt ? note.reminderAt.split('T') : ['', '']
     setForm({
       title: note.title,
       content: note.content,
@@ -48,6 +58,9 @@ export function Notes() {
       tags: (note.tags ?? []).join(', '),
       isDone: note.isDone,
       date: note.date,
+      time: note.time ?? '',
+      reminderDate: rDate ?? '',
+      reminderTime: rTime ?? '',
     })
     setShowForm(true)
   }
@@ -61,6 +74,10 @@ export function Notes() {
 
   const handleSave = async () => {
     if (!form.title.trim()) return
+    const reminderAt = form.reminderDate && form.reminderTime
+      ? `${form.reminderDate}T${form.reminderTime}`
+      : undefined
+    if (reminderAt) await requestNotificationPermission()
     const data: Omit<Note, 'id'> = {
       title: form.title,
       content: form.content,
@@ -68,6 +85,9 @@ export function Notes() {
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       isDone: form.isDone,
       date: form.date,
+      time: form.time || undefined,
+      reminderAt,
+      reminderFired: false,
     }
     if (editingId) {
       await updateNote(editingId, data)
@@ -189,9 +209,21 @@ export function Notes() {
                     </span>
                   ))}
                 </div>
-                <span className={`text-xs flex items-center gap-1 shrink-0 ${PRIORITY_COLOR[note.priority]}`}>
-                  <Flag size={10} /> {PRIORITY_LABEL[note.priority]}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {note.reminderAt && !note.reminderFired && (
+                    <span className="text-xs flex items-center gap-1 text-amber-400">
+                      <Bell size={10} /> {note.reminderAt.replace('T', ' ').slice(0, 16)}
+                    </span>
+                  )}
+                  {note.time && (
+                    <span className="text-xs text-zinc-600 flex items-center gap-1">
+                      <Clock size={9} /> {note.time}
+                    </span>
+                  )}
+                  <span className={`text-xs flex items-center gap-1 ${PRIORITY_COLOR[note.priority]}`}>
+                    <Flag size={10} /> {PRIORITY_LABEL[note.priority]}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
@@ -240,6 +272,46 @@ export function Notes() {
                   value={form.content}
                   onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
                 />
+                {/* Date + time */}
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    className="flex-1 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:outline-none [color-scheme:dark]"
+                    value={form.date}
+                    onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                  />
+                  <input
+                    type="time"
+                    className="w-28 bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:outline-none [color-scheme:dark]"
+                    value={form.time}
+                    onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
+                  />
+                </div>
+                {/* Reminder */}
+                <div className="bg-zinc-800/50 rounded-xl p-3 space-y-2 border border-zinc-700/50">
+                  <p className="text-xs font-medium text-zinc-400 flex items-center gap-1.5">
+                    <Bell size={12} /> Rappel
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      className="flex-1 bg-zinc-800 rounded-lg ring-1 ring-zinc-700 px-3 py-1.5 text-white text-sm focus:ring-amber-500/50 focus:outline-none [color-scheme:dark]"
+                      value={form.reminderDate}
+                      onChange={e => setForm(f => ({ ...f, reminderDate: e.target.value }))}
+                    />
+                    <input
+                      type="time"
+                      className="w-28 bg-zinc-800 rounded-lg ring-1 ring-zinc-700 px-3 py-1.5 text-white text-sm focus:ring-amber-500/50 focus:outline-none [color-scheme:dark]"
+                      value={form.reminderTime}
+                      onChange={e => setForm(f => ({ ...f, reminderTime: e.target.value }))}
+                    />
+                    {(form.reminderDate || form.reminderTime) && (
+                      <button onClick={() => setForm(f => ({ ...f, reminderDate: '', reminderTime: '' }))} className="text-zinc-600 hover:text-zinc-400">
+                        <BellOff size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <select
                   className="w-full bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:outline-none"
                   value={form.priority}
