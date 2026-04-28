@@ -1241,15 +1241,8 @@ export function Planning() {
   // In member-view mode interactions are disabled (read-only grid)
   const isMemberView = planningMode !== 'personal' && planningMode !== 'team'
 
-  // In member view, show the selected member's data instead of own data
-  const displayedEvents = useMemo(
-    () => isMemberView ? (activeTeamEvents as unknown as EventItem[]) : events,
-    [isMemberView, activeTeamEvents, events]
-  )
-  const displayedTasks = useMemo(
-    () => isMemberView ? (activeTeamTasks as unknown as TaskItem[]) : tasks,
-    [isMemberView, activeTeamTasks, tasks]
-  )
+  const displayedEvents = isMemberView ? (activeTeamEvents as unknown as EventItem[]) : events
+  const displayedTasks = isMemberView ? (activeTeamTasks as unknown as TaskItem[]) : tasks
 
   const viewedEvents = useMemo(() => displayedEvents.filter(e => viewedDates.includes(e.date)), [displayedEvents, viewedDates])
   const viewedTasks = useMemo(() => displayedTasks.filter(t => viewedDates.includes(t.date)), [displayedTasks, viewedDates])

@@ -2,6 +2,7 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
+import { getMessaging, type Messaging } from 'firebase/messaging'
 
 const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
 
@@ -33,3 +34,12 @@ export const app: FirebaseApp = MOCK
 export const auth: Auth = MOCK ? {} as Auth : getAuth(app)
 export const db: Firestore = MOCK ? {} as Firestore : getFirestore(app)
 export const googleProvider = new GoogleAuthProvider()
+
+export let messaging: Messaging | null = null
+if (!MOCK) {
+  try {
+    messaging = getMessaging(app)
+  } catch {
+    // getMessaging not supported in this environment (SSR, unsupported browser)
+  }
+}

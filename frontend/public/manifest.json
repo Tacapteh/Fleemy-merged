@@ -1,0 +1,11 @@
+{
+  "name": "Fleemy",
+  "short_name": "Fleemy",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#10b981",
+  "icons": [
+    { "src": "/vite.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
