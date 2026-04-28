@@ -549,7 +549,7 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
 
                 {/* Now indicator */}
                 {isToday(day) && showNow && (
-                  <div className="absolute left-0 right-0 z-30 pointer-events-none flex items-center" style={{ top: nowPx }}>
+                  <div className="absolute left-0 right-0 z-10 pointer-events-none flex items-center" style={{ top: nowPx }}>
                     <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] -ml-1 shrink-0" />
                     <div className="flex-1 h-px bg-emerald-400/50" />
                   </div>
@@ -1218,6 +1218,29 @@ export function Planning() {
     return days.map(d => format(d, 'yyyy-MM-dd'))
   }, [view, current, days])
 
+  const PAYMENT_LABELS: Record<string, string> = { paid: 'Payé', unpaid: 'Impayé', pending: 'En attente', 'not-worked': 'Non travaillé' }
+
+  const teammates = effectiveTeam
+    ? effectiveTeam.members.filter(m => m.uid !== user?.uid)
+    : []
+
+  const activeTeamEvents = useMemo(() => {
+    if (!effectiveTeam) return []
+    if (planningMode === 'team') return teamEvents
+    if (planningMode === 'personal') return []
+    return teamEvents.filter(e => e.ownerUid === planningMode)
+  }, [effectiveTeam, planningMode, teamEvents])
+
+  const activeTeamTasks = useMemo(() => {
+    if (!effectiveTeam) return []
+    if (planningMode === 'team') return teamTasks
+    if (planningMode === 'personal') return []
+    return teamTasks.filter(t => t.ownerUid === planningMode)
+  }, [effectiveTeam, planningMode, teamTasks])
+
+  // In member-view mode interactions are disabled (read-only grid)
+  const isMemberView = planningMode !== 'personal' && planningMode !== 'team'
+
   // In member view, show the selected member's data instead of own data
   const displayedEvents = useMemo(
     () => isMemberView ? (activeTeamEvents as unknown as EventItem[]) : events,
@@ -1246,29 +1269,6 @@ export function Planning() {
     [historicalEvents]
   )
   const historicalCount = historicalEvents.length
-
-  const PAYMENT_LABELS: Record<string, string> = { paid: 'Payé', unpaid: 'Impayé', pending: 'En attente', 'not-worked': 'Non travaillé' }
-
-  const teammates = effectiveTeam
-    ? effectiveTeam.members.filter(m => m.uid !== user?.uid)
-    : []
-
-  const activeTeamEvents = useMemo(() => {
-    if (!effectiveTeam) return []
-    if (planningMode === 'team') return teamEvents
-    if (planningMode === 'personal') return []
-    return teamEvents.filter(e => e.ownerUid === planningMode)
-  }, [effectiveTeam, planningMode, teamEvents])
-
-  const activeTeamTasks = useMemo(() => {
-    if (!effectiveTeam) return []
-    if (planningMode === 'team') return teamTasks
-    if (planningMode === 'personal') return []
-    return teamTasks.filter(t => t.ownerUid === planningMode)
-  }, [effectiveTeam, planningMode, teamTasks])
-
-  // In member-view mode interactions are disabled (read-only grid)
-  const isMemberView = planningMode !== 'personal' && planningMode !== 'team'
 
   return (
     <div className="flex flex-col h-full bg-[#0a0a0d]">
