@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Menu, X } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
+import { usePushNotifications } from './hooks/usePushNotifications'
 import { LoginPage } from './pages/LoginPage'
 import { Sidebar } from './components/Sidebar'
 import { Dashboard } from './components/Dashboard'
@@ -20,6 +21,11 @@ export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { show: showOnboarding, complete: completeOnboarding } = useOnboarding()
+  const { register: registerPush } = usePushNotifications(user?.uid)
+
+  useEffect(() => {
+    if (user) registerPush()
+  }, [user, registerPush])
 
   if (authLoading) {
     return (

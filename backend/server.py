@@ -6117,6 +6117,111 @@ async def import_parse(
         return []
 
 
+# ═══════════════════════════════════════════════════════════
+# FCM PUSH NOTIFICATION ROUTES
+# ═══════════════════════════════════════════════════════════
+
+try:
+    from firebase_admin import messaging as fcm_messaging  # type: ignore[import-not-found]
+    _fcm_available = True
+except Exception:
+    _fcm_available = False
+    logger.warning("firebase_admin.messaging not available — FCM endpoints will be no-ops")
+
+
+class FcmRegisterRequest(BaseModel):
+    token: str
+    userId: str
+
+
+class FcmScheduleRequest(BaseModel):
+    userId: str
+    noteId: str
+    title: str
+    body: str
+    reminderAt: str  # ISO datetime
+
+
+class FcmSendRequest(BaseModel):
+    token: str
+    title: str
+    body: str
+
+
+@api_router.post("/notifications/register")
+async def fcm_register(req: FcmRegisterRequest):
+    """Save FCM token to Firestore users/{userId}.fcmToken."""
+    try:
+        user_ref = db.collection("users").document(req.userId)
+        await asyncio.to_thread(user_ref.set, {"fcmToken": req.token}, merge=True)
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error("fcm_register error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to save FCM token")
+
+
+async def _send_fcm_at(token: str, title: str, body: str, delay_seconds: float):
+    if delay_seconds > 0:
+        await asyncio.sleep(delay_seconds)
+    if not _fcm_available:
+        logger.warning("FCM not available, skipping send")
+        return
+    try:
+        message = fcm_messaging.Message(
+            notification=fcm_messaging.Notification(title=title, body=body),
+            token=token,
+        )
+        response = fcm_messaging.send(message)
+        logger.info("FCM sent: %s", response)
+    except Exception as e:
+        logger.error("FCM send error: %s", e, exc_info=True)
+
+
+@api_router.post("/notifications/schedule")
+async def fcm_schedule(req: FcmScheduleRequest):
+    """Schedule a push notification at reminderAt (ISO datetime)."""
+    try:
+        reminder_dt = datetime.fromisoformat(req.reminderAt)
+        if reminder_dt.tzinfo is None:
+            reminder_dt = reminder_dt.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        delay = max(0.0, (reminder_dt - now).total_seconds())
+
+        # Fetch token from Firestore
+        user_ref = db.collection("users").document(req.userId)
+        snap = await asyncio.to_thread(user_ref.get)
+        if not snap.exists:
+            raise HTTPException(status_code=404, detail="User not found")
+        token = (snap.to_dict() or {}).get("fcmToken")
+        if not token:
+            raise HTTPException(status_code=400, detail="No FCM token for user")
+
+        asyncio.create_task(_send_fcm_at(token, req.title, req.body, delay))
+        return {"status": "scheduled", "delay_seconds": delay}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("fcm_schedule error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to schedule notification")
+
+
+@api_router.post("/notifications/send")
+async def fcm_send(req: FcmSendRequest):
+    """Send FCM push immediately (for testing)."""
+    if not _fcm_available:
+        raise HTTPException(status_code=503, detail="FCM not available")
+    try:
+        message = fcm_messaging.Message(
+            notification=fcm_messaging.Notification(title=req.title, body=req.body),
+            token=req.token,
+        )
+        response = fcm_messaging.send(message)
+        return {"status": "sent", "response": response}
+    except Exception as e:
+        logger.error("fcm_send error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
