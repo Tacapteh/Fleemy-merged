@@ -54,32 +54,34 @@ export function OnboardingModal({ onDone }: Props) {
 
   const finish = async () => {
     if (!user) return
-    // Save settings
-    await setDoc(doc(db, 'users', user.uid), {
-      onboardingCompleted: true,
-      settings: {
-        globalHourlyRate: data.hourlyRate,
-        workDayStart: '09:00',
-        workDayEnd: '18:00',
-        showWeekends: false,
-        defaultSlotDuration: 60,
-        clientRequired: false,
-        emailTemplates: {
-          invoice: { subject: 'Votre facture', body: '' },
-          quote: { subject: 'Votre devis', body: '' },
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        onboardingCompleted: true,
+        settings: {
+          globalHourlyRate: data.hourlyRate,
+          workDayStart: '09:00',
+          workDayEnd: '18:00',
+          showWeekends: false,
+          defaultSlotDuration: 60,
+          clientRequired: false,
+          emailTemplates: {
+            invoice: { subject: 'Votre facture', body: '' },
+            quote: { subject: 'Votre devis', body: '' },
+          },
         },
-      },
-    }, { merge: true })
-    // Add first client if provided
-    if (data.clientName.trim()) {
-      await addClient({
-        name: data.clientName.trim(),
-        company: '',
-        email: data.clientEmail.trim(),
-        status: 'active',
-        lastContact: new Date().toISOString().slice(0, 10),
-        hourlyRate: data.hourlyRate || undefined,
-      })
+      }, { merge: true })
+      if (data.clientName.trim()) {
+        await addClient({
+          name: data.clientName.trim(),
+          company: '',
+          email: data.clientEmail.trim(),
+          status: 'active',
+          lastContact: new Date().toISOString().slice(0, 10),
+          hourlyRate: data.hourlyRate || undefined,
+        })
+      }
+    } catch {
+      // Firestore failure — proceed anyway so user isn't stuck
     }
     setDone(true)
     setTimeout(onDone, 1400)
