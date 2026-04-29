@@ -38,6 +38,9 @@ export function Clients() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [form, setForm] = useState<Omit<Client, 'id'>>(EMPTY_FORM)
+  const [errors, setErrors] = useState<{ name?: string; email?: string }>({})
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
   const openAddModal = () => {
     setEditingId(null)
@@ -60,14 +63,19 @@ export function Clients() {
   }
 
   useEffect(() => {
-    if (!showModal) return
+    if (!showModal) { setErrors({}); return }
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowModal(false) }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [showModal])
 
   const handleSave = async () => {
-    if (!form.name.trim()) return
+    const errs: typeof errors = {}
+    if (!form.name.trim()) errs.name = 'Le nom est requis'
+    if (!form.email.trim()) errs.email = 'L\'email est requis'
+    else if (!EMAIL_RE.test(form.email)) errs.email = 'Email invalide'
+    if (Object.keys(errs).length > 0) { setErrors(errs); return }
+    setErrors({})
     if (editingId) {
       await updateClient(editingId, form)
       toast('Client mis à jour')
@@ -235,19 +243,25 @@ export function Clients() {
                 </button>
               </div>
               <div className="space-y-3">
-                <input
-                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
-                  placeholder="Nom *"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                />
-                <input
-                  type="email"
-                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
-                  placeholder="Email *"
-                  value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                />
+                <div>
+                  <input
+                    className={`w-full bg-zinc-800 ring-2 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none ${errors.name ? 'ring-red-500' : 'ring-zinc-700/50 focus:ring-indigo-500'}`}
+                    placeholder="Nom *"
+                    value={form.name}
+                    onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setErrors(er => ({ ...er, name: undefined })) }}
+                  />
+                  {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
+                </div>
+                <div>
+                  <input
+                    type="email"
+                    className={`w-full bg-zinc-800 ring-2 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:outline-none ${errors.email ? 'ring-red-500' : 'ring-zinc-700/50 focus:ring-indigo-500'}`}
+                    placeholder="Email *"
+                    value={form.email}
+                    onChange={e => { setForm(f => ({ ...f, email: e.target.value })); setErrors(er => ({ ...er, email: undefined })) }}
+                  />
+                  {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
+                </div>
                 <input
                   className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none"
                   placeholder="Entreprise"

@@ -42,6 +42,9 @@ export function Documents() {
   const [editingDoc, setEditingDoc] = useState<FleemyDocument | null>(null)
   const [filterType, setFilterType] = useState<DocType | 'all'>('all')
   const [filterStatus, setFilterStatus] = useState<DocStatus | 'all'>('all')
+  const [errors, setErrors] = useState<{ clientId?: string; items?: string }>({})
+
+  const resetModal = () => { setShowModal(false); setErrors({}) }
 
   // Import from tasks modal state
   const [showImportModal, setShowImportModal] = useState(false)
@@ -132,7 +135,12 @@ export function Documents() {
   }, [showModal, editingDoc])
 
   const handleSave = async () => {
-    if (!form.clientId || form.items.length === 0) return
+    const errs: typeof errors = {}
+    if (!form.clientId) errs.clientId = 'Sélectionnez un client'
+    const hasInvalidItem = form.items.some(it => !it.description.trim() || it.unitPrice <= 0)
+    if (form.items.length === 0 || hasInvalidItem) errs.items = 'Chaque ligne doit avoir une description et un prix unitaire > 0'
+    if (Object.keys(errs).length > 0) { setErrors(errs); return }
+    setErrors({})
     const client = clients.find(c => c.id === form.clientId)
     const docData: Parameters<typeof addDocument>[0] = {
       type: form.type,
@@ -147,7 +155,7 @@ export function Documents() {
     if (form.notes) docData.notes = form.notes
     await addDocument(docData)
     toast('Document créé')
-    setShowModal(false)
+    resetModal()
     setForm({ type: 'invoice', clientId: '', date: new Date().toISOString().split('T')[0], dueDate: '', notes: '', items: [{ ...EMPTY_ITEM }] })
   }
 
@@ -232,7 +240,7 @@ export function Documents() {
             <ListChecks size={15} /> Importer tâches
           </button>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => { setErrors({}); setShowModal(true) }}
             className="flex items-center gap-2 px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
           >
             <Plus size={16} /> Nouveau
@@ -267,7 +275,7 @@ export function Documents() {
           title="Aucun document"
           description="Créez votre première facture ou votre premier devis."
           action={
-            <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors">
+            <button onClick={() => { setErrors({}); setShowModal(true) }} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-colors">
               Nouveau document
             </button>
           }
@@ -342,7 +350,7 @@ export function Documents() {
             <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4 sm:hidden" />
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-white">Nouveau document</h3>
-              <button onClick={() => setShowModal(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={resetModal} className="text-zinc-500 hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -358,11 +366,12 @@ export function Documents() {
                 </div>
                 <div>
                   <label className="text-xs text-zinc-500 mb-1 block">Client *</label>
-                  <select className="w-full bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm focus:ring-indigo-500 focus:outline-none"
-                    value={form.clientId} onChange={e => setForm(f => ({ ...f, clientId: e.target.value }))}>
+                  <select className={`w-full bg-zinc-800 rounded-xl ring-2 px-3 py-2 text-white text-sm focus:outline-none ${errors.clientId ? 'ring-red-500' : 'ring-zinc-700/50 focus:ring-indigo-500'}`}
+                    value={form.clientId} onChange={e => { setForm(f => ({ ...f, clientId: e.target.value })); setErrors(er => ({ ...er, clientId: undefined })) }}>
                     <option value="">Sélectionner un client</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
+                  {errors.clientId && <p className="text-red-400 text-xs mt-1">{errors.clientId}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -412,6 +421,7 @@ export function Documents() {
                 <div className="flex justify-end mt-2">
                   <span className="text-sm font-medium text-emerald-400">Total TTC : {totalAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</span>
                 </div>
+                {errors.items && <p className="text-red-400 text-xs">{errors.items}</p>}
               </div>
 
               <textarea className="w-full bg-zinc-800 rounded-xl ring-2 ring-zinc-700/50 px-3 py-2 text-white text-sm placeholder-zinc-500 focus:ring-indigo-500 focus:outline-none resize-none"

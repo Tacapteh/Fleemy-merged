@@ -47,6 +47,7 @@ export function Budget() {
 
   const [showForm, setShowForm] = useState(false)
   const [filterType, setFilterType] = useState<TxType | 'all'>('all')
+  const [errors, setErrors] = useState<{ description?: string; amount?: string; date?: string }>({})
 
   const [form, setForm] = useState<Omit<Transaction, 'id'>>({
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -90,14 +91,19 @@ export function Budget() {
   )
 
   useEffect(() => {
-    if (!showForm) return
+    if (!showForm) { setErrors({}); return }
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowForm(false) }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [showForm])
 
   const handleAdd = async () => {
-    if (!form.description.trim() || form.amount <= 0) return
+    const errs: typeof errors = {}
+    if (!form.description.trim()) errs.description = 'La description est requise'
+    if (form.amount <= 0) errs.amount = 'Le montant doit être supérieur à 0'
+    if (!form.date) errs.date = 'La date est requise'
+    if (Object.keys(errs).length > 0) { setErrors(errs); return }
+    setErrors({})
     await addTransaction(form)
     toast('Transaction ajoutée')
     setForm({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, category: 'Autre', type: 'income', description: '' })
@@ -259,21 +265,27 @@ export function Budget() {
                 </button>
               </div>
               <div className="space-y-3">
-                <input
-                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500"
-                  placeholder="Description"
-                  value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                />
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-3 py-2 text-white text-sm"
-                  placeholder="Montant (€)"
-                  value={form.amount || ''}
-                  onChange={e => setForm(f => ({ ...f, amount: Number(e.target.value) }))}
-                />
+                <div>
+                  <input
+                    className={`w-full bg-zinc-800 ring-2 focus:outline-none rounded-xl px-3 py-2 text-white text-sm placeholder-zinc-500 ${errors.description ? 'ring-red-500' : 'ring-zinc-700/50 focus:ring-indigo-500'}`}
+                    placeholder="Description"
+                    value={form.description}
+                    onChange={e => { setForm(f => ({ ...f, description: e.target.value })); setErrors(er => ({ ...er, description: undefined })) }}
+                  />
+                  {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description}</p>}
+                </div>
+                <div>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    className={`w-full bg-zinc-800 ring-2 focus:outline-none rounded-xl px-3 py-2 text-white text-sm ${errors.amount ? 'ring-red-500' : 'ring-zinc-700/50 focus:ring-indigo-500'}`}
+                    placeholder="Montant (€)"
+                    value={form.amount || ''}
+                    onChange={e => { setForm(f => ({ ...f, amount: Number(e.target.value) })); setErrors(er => ({ ...er, amount: undefined })) }}
+                  />
+                  {errors.amount && <p className="text-red-400 text-xs mt-1">{errors.amount}</p>}
+                </div>
                 <select
                   className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-3 py-2 text-white text-sm"
                   value={form.type}
@@ -290,12 +302,15 @@ export function Budget() {
                 >
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <input
-                  type="date"
-                  className="w-full bg-zinc-800 ring-2 ring-zinc-700/50 focus:ring-indigo-500 focus:outline-none rounded-xl px-3 py-2 text-white text-sm"
-                  value={form.date}
-                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                />
+                <div>
+                  <input
+                    type="date"
+                    className={`w-full bg-zinc-800 ring-2 focus:outline-none rounded-xl px-3 py-2 text-white text-sm ${errors.date ? 'ring-red-500' : 'ring-zinc-700/50 focus:ring-indigo-500'}`}
+                    value={form.date}
+                    onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setErrors(er => ({ ...er, date: undefined })) }}
+                  />
+                  {errors.date && <p className="text-red-400 text-xs mt-1">{errors.date}</p>}
+                </div>
                 <button
                   onClick={handleAdd}
                   className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium transition-colors"
