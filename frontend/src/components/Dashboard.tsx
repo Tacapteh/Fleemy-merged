@@ -227,7 +227,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 </linearGradient>
               </defs>
               <XAxis dataKey="name" tick={{ fill: '#52525b', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#52525b', fontSize: 11 }} axisLine={false} tickLine={false} width={40} />
+              <YAxis tick={{ fill: '#52525b', fontSize: 11 }} axisLine={false} tickLine={false} width={48} tickFormatter={v => v >= 1000 ? `${v / 1000}k€` : `${v}€`} />
               <Tooltip
                 contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 10, fontSize: 12 }}
                 labelStyle={{ color: '#a1a1aa' }}

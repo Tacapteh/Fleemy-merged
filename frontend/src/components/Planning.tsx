@@ -177,6 +177,7 @@ interface FinancePanelProps {
 
 function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCosts, historicalRevenue, historicalCount, tasks, events, clients, open, onToggle, viewMode }: FinancePanelProps) {
   const progress = tasksTotal > 0 ? (tasksDone / tasksTotal) * 100 : 0
+  const grandTotal = stats.total + taskRevenue + taskCosts
 
   // tasks is already filtered to the viewed date range by the parent
   const tasksByName = useMemo(() => {
@@ -236,7 +237,7 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
                 <p className="text-[10px] text-zinc-600 mt-0.5">{viewMode === 'day' ? 'Jour' : viewMode === 'week' ? 'Semaine' : 'Mois'}</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-white">{stats.total.toLocaleString('fr-FR')}</p>
+                <p className="text-2xl font-bold text-white">{grandTotal.toLocaleString('fr-FR')}</p>
                 <p className="text-[10px] text-zinc-600">€</p>
               </div>
             </div>
@@ -321,7 +322,7 @@ function FinancePanelInner({ stats, tasksDone, tasksTotal, taskRevenue, taskCost
         >
           <span className="text-xs font-semibold text-zinc-400">Finances ({viewMode === 'day' ? 'Jour' : viewMode === 'week' ? 'Semaine' : 'Mois'})</span>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-white">{stats.total.toLocaleString('fr-FR')} €</span>
+            <span className="text-xs font-bold text-white">{grandTotal.toLocaleString('fr-FR')} €</span>
             <ChevronLeft
               size={14}
               className={`text-zinc-600 transition-transform duration-300 ${open ? '-rotate-90' : 'rotate-90'}`}
@@ -624,8 +625,11 @@ function TimeGrid({ days, tasks, events, clients, teamEvents, teamTasks, nowPx, 
                   )
                 })}
 
-                {/* Task pills */}
-                {dayTasks.map(task => {
+                {/* Task pills — hidden when overlapping an event (shown as icon inside event instead) */}
+                {dayTasks.filter(task => {
+                  const taskRange = { s: toMin(task.startTime ?? '09:00'), e: toMin(task.endTime ?? '10:00') }
+                  return !dayEvents.some(ev => overlaps(taskRange, { s: toMin(ev.startTime ?? '09:00'), e: toMin(ev.endTime ?? '10:00') }))
+                }).map(task => {
                   const top = toPx(toMin(task.startTime ?? '09:00'))
                   const h = Math.max(22, toPx(toMin(task.endTime ?? '10:00')) - top)
                   const done = task.status === 'done'
@@ -888,7 +892,7 @@ export function Planning() {
 
   const effectiveTeam = soloMode ? null : team
 
-  const [view, setView] = useState<ViewMode>('week')
+  const [view, setView] = useState<ViewMode>(() => window.innerWidth < 1024 ? 'day' : 'week')
   const [current, setCurrent] = useState(new Date())
   const [modal, setModal] = useState(false)
   const [mType, setMType] = useState<'task' | 'event'>('event')

@@ -57,7 +57,7 @@ export function App() {
   }
 
   return (
-    <div className="flex h-screen bg-zinc-950 overflow-hidden">
+    <div className="flex h-[100dvh] bg-zinc-950 overflow-hidden">
       <Sidebar
         activeTab={activeTab}
         onTabChange={tab => setActiveTab(tab)}
@@ -75,7 +75,7 @@ export function App() {
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto min-h-0">
           {renderContent()}
         </main>
       </div>

@@ -42,7 +42,7 @@ function useCountUp(target: number, duration = 800) {
 }
 
 export function Budget() {
-  const { transactions, addTransaction, deleteTransaction } = useBudget()
+  const { transactions, addTransaction, deleteTransaction, loading } = useBudget()
   const { toast } = useToast()
 
   const [showForm, setShowForm] = useState(false)
@@ -120,31 +120,43 @@ export function Budget() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Revenus',  value: animIncome,  icon: TrendingUp,  color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-          { label: 'Dépenses', value: animExpense, icon: TrendingDown, color: 'text-red-400',     bg: 'bg-red-500/10' },
-          { label: 'Épargne',  value: animSavings, icon: PiggyBank,    color: 'text-blue-400',    bg: 'bg-blue-500/10' },
-          { label: 'Solde net', value: stats.balance >= 0 ? animBalance : -animBalance, icon: TrendingUp, color: stats.balance >= 0 ? 'text-emerald-400' : 'text-red-400', bg: stats.balance >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10' },
-        ].map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-            <div className={`${bg} w-9 h-9 rounded-lg flex items-center justify-center mb-3`}>
-              <Icon size={18} className={color} />
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 animate-pulse">
+              <div className="w-9 h-9 rounded-xl bg-zinc-800 mb-3" />
+              <div className="h-6 w-24 bg-zinc-800 rounded mb-2" />
+              <div className="h-3 w-16 bg-zinc-800 rounded" />
             </div>
-            <p className={`text-xl font-bold ${color}`}>{value.toLocaleString('fr-FR')} €</p>
-            <p className="text-xs text-zinc-500 mt-1">{label}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Revenus',  value: animIncome,  icon: TrendingUp,  color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+            { label: 'Dépenses', value: animExpense, icon: TrendingDown, color: 'text-red-400',     bg: 'bg-red-500/10' },
+            { label: 'Épargne',  value: animSavings, icon: PiggyBank,    color: 'text-blue-400',    bg: 'bg-blue-500/10' },
+            { label: 'Solde net', value: stats.balance >= 0 ? animBalance : -animBalance, icon: TrendingUp, color: stats.balance >= 0 ? 'text-emerald-400' : 'text-red-400', bg: stats.balance >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10' },
+          ].map(({ label, value, icon: Icon, color, bg }) => (
+            <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+              <div className={`${bg} w-9 h-9 rounded-xl flex items-center justify-center mb-3`}>
+                <Icon size={18} className={color} />
+              </div>
+              <p className={`text-xl font-bold ${color}`}>{value.toLocaleString('fr-FR')} €</p>
+              <p className="text-xs text-zinc-500 mt-1">{label}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Chart */}
-      {categoryData.length > 0 && (
+      {categoryData.length > 0 && !loading && (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
           <h2 className="text-sm font-medium text-zinc-400 mb-4">Dépenses par catégorie (ce mois)</h2>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={categoryData}>
               <XAxis dataKey="name" tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#71717a', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${v / 1000}k€` : `${v}€`} width={42} />
               <Tooltip
                 contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 8 }}
                 labelStyle={{ color: '#a1a1aa' }}
@@ -179,7 +191,17 @@ export function Budget() {
           </div>
         </div>
         <div className="divide-y divide-zinc-800 max-h-80 overflow-y-auto">
-          {filtered.length === 0 ? (
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="p-4 flex items-center gap-3 animate-pulse">
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-4 w-40 bg-zinc-800 rounded" />
+                  <div className="h-3 w-24 bg-zinc-800 rounded" />
+                </div>
+                <div className="h-4 w-16 bg-zinc-800 rounded" />
+              </div>
+            ))
+          ) : filtered.length === 0 ? (
             <EmptyState
               icon={<Receipt size={28} />}
               title="Aucune transaction"

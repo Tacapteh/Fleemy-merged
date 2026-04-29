@@ -15,6 +15,10 @@ const STATUS_COLORS: Record<string, string> = {
   inactive: 'bg-zinc-700 text-zinc-400',
 }
 
+const AVATAR_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#06b6d4', '#a855f7', '#f97316', '#0ea5e9', '#f43f5e']
+function avatarColor(name: string) { return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length] }
+function initials(name: string) { return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() }
+
 const EMPTY_FORM = {
   name: '',
   email: '',
@@ -141,11 +145,19 @@ export function Clients() {
           {filtered.map(client => (
             <div key={client.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 group">
               <div className="flex items-start justify-between mb-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-white truncate">{client.name}</h3>
-                  <p className="text-xs text-zinc-500 truncate">{client.company}</p>
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold"
+                    style={{ background: avatarColor(client.name) + '25', color: avatarColor(client.name), border: `1.5px solid ${avatarColor(client.name)}40` }}
+                  >
+                    {initials(client.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-white truncate">{client.name}</h3>
+                    <p className="text-xs text-zinc-500 truncate">{client.company}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 ml-2">
+                <div className="flex items-center gap-1 ml-2 shrink-0">
                   <span className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[client.status]}`}>
                     {STATUS_LABELS[client.status]}
                   </span>
