@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
   type User,
@@ -8,6 +10,15 @@ import {
 import { auth, googleProvider } from '../services/firebase'
 
 const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+
+// iOS Safari et PWA bloquent les popups — on utilise redirect dans ces cas
+function isMobileOrPWA(): boolean {
+  const ua = navigator.userAgent
+  const isIOS = /iPad|iPhone|iPod/.test(ua)
+  const isAndroid = /Android/.test(ua)
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches
+  return isIOS || isAndroid || isPWA
+}
 
 const MOCK_USER = {
   uid: 'demo-user',
@@ -36,6 +47,16 @@ function useFirebaseAuth() {
 
   useEffect(() => {
     isMounted.current = true
+
+    // Récupère le résultat du redirect si on revient d'une auth mobile
+    getRedirectResult(auth).catch((err) => {
+      if (isMounted.current) {
+        console.error('Redirect auth error:', err)
+        setError('Connexion échouée. Réessayez.')
+        setAuthLoading(false)
+      }
+    })
+
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
@@ -54,6 +75,11 @@ function useFirebaseAuth() {
   const signInWithGoogle = async () => {
     setError(null); setSigningIn(true)
     try {
+      if (isMobileOrPWA()) {
+        await signInWithRedirect(auth, googleProvider)
+        // La page va recharger — le résultat sera récupéré via getRedirectResult au montage
+        return
+      }
       await signInWithPopup(auth, googleProvider)
     } catch (err) {
       if (isMounted.current) { setError('Connexion échouée. Réessayez.'); console.error(err) }
