@@ -14,7 +14,8 @@ const DEMO_USER = {
   email: 'demo@fleemy.app',
   displayName: 'Utilisateur Démo',
   photoURL: null,
-} as unknown as User
+  getIdToken: async () => 'mock-token',
+} as User
 
 export function useMockAuth() {
   const [user] = useState<User>(DEMO_USER)
