@@ -4,7 +4,7 @@ import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
 import { getMessaging, type Messaging } from 'firebase/messaging'
 
-const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+import { IS_MOCK as MOCK } from '../lib/mockMode'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,

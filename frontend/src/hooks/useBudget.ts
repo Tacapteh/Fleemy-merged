@@ -67,5 +67,5 @@ function useBudgetFirestore() {
 }
 
 import { useMockBudget } from '../mocks/hooks'
-const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
-export const useBudget = _MOCK ? useMockBudget : useBudgetFirestore
+import { IS_MOCK } from '../lib/mockMode'
+export const useBudget = IS_MOCK ? useMockBudget : useBudgetFirestore

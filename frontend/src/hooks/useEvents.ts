@@ -67,5 +67,5 @@ function useEventsFirestore() {
 }
 
 import { useMockEvents } from '../mocks/hooks'
-const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
-export const useEvents = _MOCK ? useMockEvents : useEventsFirestore
+import { IS_MOCK } from '../lib/mockMode'
+export const useEvents = IS_MOCK ? useMockEvents : useEventsFirestore

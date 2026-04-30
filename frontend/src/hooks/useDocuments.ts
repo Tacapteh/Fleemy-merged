@@ -67,5 +67,5 @@ function useDocumentsFirestore() {
 }
 
 import { useMockDocuments } from '../mocks/hooks'
-const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
-export const useDocuments = _MOCK ? useMockDocuments : useDocumentsFirestore
+import { IS_MOCK } from '../lib/mockMode'
+export const useDocuments = IS_MOCK ? useMockDocuments : useDocumentsFirestore

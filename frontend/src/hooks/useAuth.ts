@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth'
 import { auth, googleProvider } from '../services/firebase'
 
-const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+import { IS_MOCK as MOCK } from '../lib/mockMode'
 
 // iOS Safari et PWA bloquent les popups — on utilise redirect dans ces cas
 function isMobileOrPWA(): boolean {
