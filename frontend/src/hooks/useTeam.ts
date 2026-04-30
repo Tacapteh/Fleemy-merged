@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, deleteField } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteField } from 'firebase/firestore'
 import { nanoid } from 'nanoid'
+import axios from 'axios'
 import { db } from '../services/firebase'
+import { apiClient } from '../services/api'
 import { useAuth } from './useAuth'
 import type { Team, TeamMember } from '../types'
 
@@ -75,30 +77,17 @@ export function useTeam() {
     if (!user) return
     setError(null)
     try {
-      // Search team by inviteCode — limited scan (no index on inviteCode for simplicity)
-      // In production, use a Firestore query with index
-      const { getDocs, collection, query, where } = await import('firebase/firestore')
-      const q = query(collection(db, 'teams'), where('inviteCode', '==', inviteCode.toUpperCase()))
-      const snap = await getDocs(q)
-      if (snap.empty) {
-        setError('Code d\'invitation invalide.')
-        return
+      const { data } = await apiClient.post('/teams/join', { code: inviteCode.toUpperCase() })
+      if (data.team_id) {
+        await setDoc(doc(db, 'users', user.uid), { teamId: data.team_id }, { merge: true })
+        await loadUserTeam()
       }
-      const teamDoc = snap.docs[0]
-      const member: TeamMember = {
-        uid: user.uid,
-        email: user.email!,
-        displayName: user.displayName ?? user.email!,
-        photoURL: user.photoURL ?? undefined,
-        role: 'member',
-      }
-      await updateDoc(doc(db, 'teams', teamDoc.id), { members: arrayUnion(member) })
-      await setDoc(doc(db, 'users', user.uid), { teamId: teamDoc.id }, { merge: true })
-      // Reload to get fresh data including the newly added member
-      const freshDoc = await getDoc(doc(db, 'teams', teamDoc.id))
-      setTeam({ id: freshDoc.id, ...freshDoc.data() } as Team)
     } catch (err) {
-      setError('Impossible de rejoindre l\'équipe.')
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        setError('Code d\'invitation invalide.')
+      } else {
+        setError('Impossible de rejoindre l\'équipe.')
+      }
       console.error(err)
     }
   }
