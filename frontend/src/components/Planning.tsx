@@ -21,7 +21,7 @@ import {
   eachDayOfInterval, isSameDay, isSameMonth,
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import type { TaskItem, EventItem, Client, Priority, EventStatus, TaskStatus } from '../types'
+import type { TaskItem, EventItem, Client } from '../types'
 import { HOUR_H, DAY_START, DAY_END, toMin, toPx, pxToMin, pxToMin30, toTimeStr, overlaps } from '../utils/time'
 
 type ViewMode = 'day' | 'week' | 'month'
@@ -883,7 +883,6 @@ export function Planning() {
 
   const [titleError, setTitleError] = useState(false)
 
-<<<<<<< HEAD
   // Finance panel
   const [panelOpen, setPanelOpen] = useState<boolean>(() => {
     try { return localStorage.getItem('fleemy:planning:panel') !== 'false' } catch { return true }
@@ -924,23 +923,10 @@ export function Planning() {
     prixFixeEvacuation: '' as number | '',
     deplacementMode: 'km' as 'km' | 'fixe',
     evacuationMode: 'volume' as 'volume' | 'fixe',
-=======
-  const [tForm, setTForm] = useState<{
-    title: string; date: string; startTime: string; endTime: string
-    priority: Priority; status: TaskStatus; description: string; icon: string; color: string
-  }>({
-    title: '', date: format(new Date(), 'yyyy-MM-dd'),
-    startTime: '09:00', endTime: '10:00',
-    priority: 2, status: 'todo', description: '', icon: '', color: '',
->>>>>>> 5f8c563 (fix(frontend): remove unsafe type casts in Planning and auth mocks)
   })
-  const [eForm, setEForm] = useState<{
-    title: string; date: string; startTime: string; endTime: string
-    clientId: string; isBillable: boolean; paymentStatus: EventStatus
-  }>({
+  const [eForm, setEForm] = useState({
     title: '', date: format(new Date(), 'yyyy-MM-dd'),
     startTime: '09:00', endTime: '10:00',
-<<<<<<< HEAD
     clientId: '', isBillable: true,
     paymentStatus: 'unpaid' as EventItem['paymentStatus'],
     useCustomRate: false,
@@ -949,9 +935,6 @@ export function Planning() {
     segments: [] as { startTime: string; endTime: string; hourlyRate: number | '' }[],
     repeatType: 'none' as 'none' | 'weekly' | 'monthly',
     repeatCount: 4,
-=======
-    clientId: '', isBillable: true, paymentStatus: 'unpaid',
->>>>>>> 5f8c563 (fix(frontend): remove unsafe type casts in Planning and auth mocks)
   })
 
   const resetTForm = () => setTForm({
@@ -989,7 +972,6 @@ export function Planning() {
 
   const openEditTask = (task: TaskItem) => {
     setEditingId(task.id); setMType('task')
-<<<<<<< HEAD
     setTForm({
       title: task.title, date: task.date,
       startTime: task.startTime ?? '09:00', endTime: task.endTime ?? '10:00',
@@ -1007,9 +989,6 @@ export function Planning() {
       deplacementMode: task.prixFixeDeplacement !== undefined ? 'fixe' : 'km',
       evacuationMode: task.prixFixeEvacuation !== undefined ? 'fixe' : 'volume',
     })
-=======
-    setTForm({ title: task.title, date: task.date, startTime: task.startTime ?? '09:00', endTime: task.endTime ?? '10:00', priority: task.priority, status: task.status, description: task.description ?? '', icon: task.icon ?? '', color: task.color ?? '' })
->>>>>>> 5f8c563 (fix(frontend): remove unsafe type casts in Planning and auth mocks)
     setModal(true)
   }
 
@@ -1060,8 +1039,7 @@ export function Planning() {
 
   const saveTask = async () => {
     if (!tForm.title.trim()) { setTitleError(true); setTimeout(() => setTitleError(false), 600); return }
-<<<<<<< HEAD
-    
+
     // Check for time overlaps with existing tasks
     const ds = tForm.date
     const newRange = { s: toMin(tForm.startTime), e: toMin(tForm.endTime) }
@@ -1070,12 +1048,12 @@ export function Planning() {
       const taskRange = { s: toMin(task.startTime ?? '09:00'), e: toMin(task.endTime ?? '10:00') }
       return overlaps(newRange, taskRange)
     })
-    
+
     if (hasOverlap) {
       toast('Chevauchement de tâche détecté')
       return
     }
-    
+
     const montantTache = calcMontantTache()
     // Build object without any undefined values — Firestore rejects them
     const data: Record<string, unknown> = {
@@ -1109,11 +1087,6 @@ export function Planning() {
     }
     if (editingId) { await updateTask(editingId, data as Partial<TaskItem>); toast('Tâche modifiée') }
     else { await addTask(data as Omit<TaskItem, 'id'>); toast('Tâche créée') }
-=======
-    const data = { ...tForm, ...(tForm.icon ? {} : { icon: undefined }), ...(tForm.color ? {} : { color: undefined }) }
-    if (editingId) { await updateTask(editingId, data); toast('Tâche modifiée') }
-    else { await addTask({ ...data, type: 'task', progress: 0 }); toast('Tâche créée') }
->>>>>>> 5f8c563 (fix(frontend): remove unsafe type casts in Planning and auth mocks)
     closeModal(); resetTForm()
   }
 
@@ -1152,7 +1125,6 @@ export function Planning() {
     if (eForm.clientId) {
       base.clientId = eForm.clientId
       const client = clients.find(c => c.id === eForm.clientId)
-<<<<<<< HEAD
       if (client?.name) base.clientName = client.name
     }
     if (eForm.useCustomRate && eForm.hourlyRate !== '') base.hourlyRate = Number(eForm.hourlyRate)
@@ -1175,10 +1147,6 @@ export function Planning() {
     } else {
       await addEvent(base as Omit<EventItem, 'id'>)
       toast('Créneau créé')
-=======
-      const extra = client?.name ? { clientName: client.name } : {}
-      await addEvent({ ...eForm, type: 'event', ...extra }); toast('Créneau créé')
->>>>>>> 5f8c563 (fix(frontend): remove unsafe type casts in Planning and auth mocks)
     }
     closeModal(); resetEForm()
   }
