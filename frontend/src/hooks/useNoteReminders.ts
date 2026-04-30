@@ -13,7 +13,7 @@ export function useNoteReminders(notes: Note[], updateNote: (id: string, data: P
         if (reminderDate <= now) {
           firedRef.current.add(note.id)
           updateNote(note.id, { reminderFired: true })
-          if (Notification.permission === 'granted') {
+          if ('Notification' in window && Notification.permission === 'granted') {
             new Notification(`Rappel : ${note.title}`, {
               body: note.content || 'Note Fleemy',
               icon: '/favicon.ico',

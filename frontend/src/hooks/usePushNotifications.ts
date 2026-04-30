@@ -16,7 +16,7 @@ export function usePushNotifications(userId: string | undefined) {
     !!VAPID_KEY
 
   const [permissionGranted, setPermissionGranted] = useState(
-    typeof window !== 'undefined' && Notification.permission === 'granted'
+    typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
   )
 
   const register = useCallback(async () => {
