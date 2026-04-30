@@ -25,7 +25,8 @@ const MOCK_USER = {
   email: 'demo@fleemy.app',
   displayName: 'Utilisateur Démo',
   photoURL: 'https://ui-avatars.com/api/?name=Demo+User&background=10b981&color=fff&size=64',
-} as unknown as User
+  getIdToken: async () => 'mock-token',
+} as User
 
 function useMockAuth() {
   return {
