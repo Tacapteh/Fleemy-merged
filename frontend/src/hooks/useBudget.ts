@@ -12,33 +12,58 @@ function useBudgetFirestore() {
   const { user } = useAuth()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) { setLoading(false); return }
     const q = query(collection(db, 'transactions'), where('userId', '==', user.uid))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setTransactions(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Transaction)))
-      setLoading(false)
-    })
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setTransactions(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Transaction)))
+        setLoading(false)
+        setError(null)
+      },
+      (err) => {
+        console.error('useBudget: snapshot error', err)
+        setError('Impossible de charger les transactions.')
+        setLoading(false)
+      }
+    )
     return unsubscribe
   }, [user])
 
   const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
     if (!user) return
-    await addDoc(collection(db, 'transactions'), { ...transaction, userId: user.uid, createdAt: serverTimestamp() })
+    try {
+      await addDoc(collection(db, 'transactions'), { ...transaction, userId: user.uid, createdAt: serverTimestamp() })
+    } catch (err) {
+      console.error(err)
+      throw new Error('Impossible d\'ajouter la transaction.')
+    }
   }
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
     if (!user) return
-    await updateDoc(doc(db, 'transactions', id), updates as UpdateData<Transaction>)
+    try {
+      await updateDoc(doc(db, 'transactions', id), updates as UpdateData<Transaction>)
+    } catch (err) {
+      console.error(err)
+      throw new Error('Impossible de modifier la transaction.')
+    }
   }
 
   const deleteTransaction = async (id: string) => {
     if (!user) return
-    await deleteDoc(doc(db, 'transactions', id))
+    try {
+      await deleteDoc(doc(db, 'transactions', id))
+    } catch (err) {
+      console.error(err)
+      throw new Error('Impossible de supprimer la transaction.')
+    }
   }
 
-  return { transactions, loading, addTransaction, updateTransaction, deleteTransaction }
+  return { transactions, loading, error, addTransaction, updateTransaction, deleteTransaction }
 }
 
 import { useMockBudget } from '../mocks/hooks'

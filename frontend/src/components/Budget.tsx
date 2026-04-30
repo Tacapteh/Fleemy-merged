@@ -104,10 +104,14 @@ export function Budget() {
     if (!form.date) errs.date = 'La date est requise'
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setErrors({})
-    await addTransaction(form)
-    toast('Transaction ajoutée')
-    setForm({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, category: 'Autre', type: 'income', description: '' })
-    setShowForm(false)
+    try {
+      await addTransaction(form)
+      toast('Transaction ajoutée')
+      setForm({ date: format(new Date(), 'yyyy-MM-dd'), amount: 0, category: 'Autre', type: 'income', description: '' })
+      setShowForm(false)
+    } catch {
+      toast('Erreur lors de l\'enregistrement.', 'error')
+    }
   }
 
   return (

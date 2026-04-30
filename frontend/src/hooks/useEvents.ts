@@ -12,33 +12,58 @@ function useEventsFirestore() {
   const { user } = useAuth()
   const [events, setEvents] = useState<EventItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) { setLoading(false); return }
     const q = query(collection(db, 'events'), where('userId', '==', user.uid))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setEvents(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as EventItem)))
-      setLoading(false)
-    })
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setEvents(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as EventItem)))
+        setLoading(false)
+        setError(null)
+      },
+      (err) => {
+        console.error('useEvents: snapshot error', err)
+        setError('Impossible de charger les événements.')
+        setLoading(false)
+      }
+    )
     return unsubscribe
   }, [user])
 
   const addEvent = async (event: Omit<EventItem, 'id'>) => {
     if (!user) return
-    await addDoc(collection(db, 'events'), { ...event, userId: user.uid, createdAt: serverTimestamp() })
+    try {
+      await addDoc(collection(db, 'events'), { ...event, userId: user.uid, createdAt: serverTimestamp() })
+    } catch (err) {
+      console.error(err)
+      throw new Error('Impossible d\'ajouter l\'événement.')
+    }
   }
 
   const updateEvent = async (id: string, updates: Partial<EventItem>) => {
     if (!user) return
-    await updateDoc(doc(db, 'events', id), updates as UpdateData<EventItem>)
+    try {
+      await updateDoc(doc(db, 'events', id), updates as UpdateData<EventItem>)
+    } catch (err) {
+      console.error(err)
+      throw new Error('Impossible de modifier l\'événement.')
+    }
   }
 
   const deleteEvent = async (id: string) => {
     if (!user) return
-    await deleteDoc(doc(db, 'events', id))
+    try {
+      await deleteDoc(doc(db, 'events', id))
+    } catch (err) {
+      console.error(err)
+      throw new Error('Impossible de supprimer l\'événement.')
+    }
   }
 
-  return { events, loading, addEvent, updateEvent, deleteEvent }
+  return { events, loading, error, addEvent, updateEvent, deleteEvent }
 }
 
 import { useMockEvents } from '../mocks/hooks'

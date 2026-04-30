@@ -79,19 +79,23 @@ export function Documents() {
         taxRate: 20,
       }))
     const totalAmount = items.reduce((s, it) => s + it.quantity * it.unitPrice * (1 + it.taxRate / 100), 0)
-    await addDocument({
-      type: importDocType,
-      clientId: importClientId,
-      clientName: client?.name ?? '',
-      items,
-      status: 'draft',
-      date: new Date().toISOString().split('T')[0],
-      totalAmount,
-    })
-    toast('Document importé depuis les tâches')
-    setShowImportModal(false)
-    setImportSelected(new Set())
-    setImportClientId('')
+    try {
+      await addDocument({
+        type: importDocType,
+        clientId: importClientId,
+        clientName: client?.name ?? '',
+        items,
+        status: 'draft',
+        date: new Date().toISOString().split('T')[0],
+        totalAmount,
+      })
+      toast('Document importé depuis les tâches')
+      setShowImportModal(false)
+      setImportSelected(new Set())
+      setImportClientId('')
+    } catch {
+      toast('Erreur lors de l\'import.', 'error')
+    }
   }
 
   const [form, setForm] = useState<{
@@ -153,10 +157,14 @@ export function Documents() {
     }
     if (form.dueDate) docData.dueDate = form.dueDate
     if (form.notes) docData.notes = form.notes
-    await addDocument(docData)
-    toast('Document créé')
-    resetModal()
-    setForm({ type: 'invoice', clientId: '', date: new Date().toISOString().split('T')[0], dueDate: '', notes: '', items: [{ ...EMPTY_ITEM }] })
+    try {
+      await addDocument(docData)
+      toast('Document créé')
+      resetModal()
+      setForm({ type: 'invoice', clientId: '', date: new Date().toISOString().split('T')[0], dueDate: '', notes: '', items: [{ ...EMPTY_ITEM }] })
+    } catch {
+      toast('Erreur lors de la création.', 'error')
+    }
   }
 
   function buildDocPayload(d: FleemyDocument) {
