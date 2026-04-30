@@ -3,6 +3,7 @@ node_modules/
 .env
 .env.*
 frontend/.env.*
+!frontend/.env.example
 __pycache__/
 *.pyc
 frontend/dist/
