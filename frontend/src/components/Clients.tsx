@@ -76,14 +76,18 @@ export function Clients() {
     else if (!EMAIL_RE.test(form.email)) errs.email = 'Email invalide'
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setErrors({})
-    if (editingId) {
-      await updateClient(editingId, form)
-      toast('Client mis à jour')
-    } else {
-      await addClient(form)
-      toast('Client ajouté')
+    try {
+      if (editingId) {
+        await updateClient(editingId, form)
+        toast('Client mis à jour')
+      } else {
+        await addClient(form)
+        toast('Client ajouté')
+      }
+      setShowModal(false)
+    } catch {
+      toast('Erreur lors de l\'enregistrement.', 'error')
     }
-    setShowModal(false)
   }
 
   const filtered = clients

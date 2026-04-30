@@ -89,14 +89,18 @@ export function Notes() {
       reminderAt,
       reminderFired: false,
     }
-    if (editingId) {
-      await updateNote(editingId, data)
-      toast('Note mise à jour')
-    } else {
-      await addNote(data)
-      toast('Note créée')
+    try {
+      if (editingId) {
+        await updateNote(editingId, data)
+        toast('Note mise à jour')
+      } else {
+        await addNote(data)
+        toast('Note créée')
+      }
+      setShowForm(false)
+    } catch {
+      toast('Erreur lors de l\'enregistrement.', 'error')
     }
-    setShowForm(false)
   }
 
   const filtered = useMemo(() => {

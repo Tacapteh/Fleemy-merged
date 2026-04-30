@@ -39,6 +39,7 @@ export function useTeam() {
       }
     } catch (err) {
       console.error('Failed to load team:', err)
+      setError('Impossible de charger l\'équipe.')
     }
     setLoading(false)
   }
@@ -109,6 +110,7 @@ export function useTeam() {
       setTeam(null)
     } catch (err) {
       console.error(err)
+      setError('Impossible de quitter l\'équipe.')
     }
   }
 
