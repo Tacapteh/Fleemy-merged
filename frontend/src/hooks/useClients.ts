@@ -42,5 +42,5 @@ function useClientsFirestore() {
 }
 
 import { useMockClients } from '../mocks/hooks'
-const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
-export const useClients = _MOCK ? useMockClients : useClientsFirestore
+import { IS_MOCK } from '../lib/mockMode'
+export const useClients = IS_MOCK ? useMockClients : useClientsFirestore

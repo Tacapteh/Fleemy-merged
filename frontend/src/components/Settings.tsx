@@ -7,7 +7,7 @@ import { useTeam } from '../hooks/useTeam'
 import { useToast } from '../context/ToastContext'
 import type { AppSettings } from '../types'
 
-const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+import { IS_MOCK as MOCK } from '../lib/mockMode'
 
 const DEFAULTS: AppSettings = {
   darkMode: true,

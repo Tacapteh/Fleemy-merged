@@ -42,5 +42,5 @@ function useNotesFirestore() {
 }
 
 import { useMockNotes } from '../mocks/hooks'
-const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
-export const useNotes = _MOCK ? useMockNotes : useNotesFirestore
+import { IS_MOCK } from '../lib/mockMode'
+export const useNotes = IS_MOCK ? useMockNotes : useNotesFirestore

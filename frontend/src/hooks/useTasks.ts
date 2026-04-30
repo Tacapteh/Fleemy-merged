@@ -42,5 +42,5 @@ function useTasksFirestore() {
 }
 
 import { useMockTasks } from '../mocks/hooks'
-const _MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
-export const useTasks = _MOCK ? useMockTasks : useTasksFirestore
+import { IS_MOCK } from '../lib/mockMode'
+export const useTasks = IS_MOCK ? useMockTasks : useTasksFirestore

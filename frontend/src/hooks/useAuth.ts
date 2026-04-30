@@ -7,7 +7,7 @@ import {
 } from 'firebase/auth'
 import { auth, googleProvider } from '../services/firebase'
 
-const MOCK = import.meta.env.VITE_MOCK_MODE === 'true'
+import { IS_MOCK as MOCK } from '../lib/mockMode'
 
 const MOCK_USER = {
   uid: 'demo-user',
