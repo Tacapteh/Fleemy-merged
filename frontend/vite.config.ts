@@ -49,6 +49,11 @@ messaging.onBackgroundMessage((payload) => {
 
 export default defineConfig({
   plugins: [react(), firebaseSwPlugin()],
+  test: {
+    environment: 'node',
+    globals: false,
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+  },
   server: {
     port: 3000,
     proxy: {

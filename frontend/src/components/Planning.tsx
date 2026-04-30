@@ -22,31 +22,12 @@ import {
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { TaskItem, EventItem, Client, Priority, EventStatus, TaskStatus } from '../types'
+import { HOUR_H, DAY_START, DAY_END, toMin, toPx, pxToMin, pxToMin30, toTimeStr, overlaps } from '../utils/time'
 
 type ViewMode = 'day' | 'week' | 'month'
 
 // ─── Time grid constants ─────────────────────────────────────────────────────
-const HOUR_H = 64
-const DAY_START = 7
-const DAY_END = 21
 const HOURS = Array.from({ length: DAY_END - DAY_START }, (_, i) => i + DAY_START)
-
-function toMin(t: string) { const [h, m] = t.split(':').map(Number); return h * 60 + m }
-function toPx(min: number) { return ((min - DAY_START * 60) / 60) * HOUR_H }
-function pxToMin(px: number) {
-  const raw = (px / HOUR_H) * 60 + DAY_START * 60
-  return Math.max(DAY_START * 60, Math.min((DAY_END - 1) * 60, Math.round(raw / 60) * 60))
-}
-function pxToMin30(px: number) {
-  const raw = (px / HOUR_H) * 60 + DAY_START * 60
-  return Math.max(DAY_START * 60, Math.min((DAY_END - 1) * 60, Math.round(raw / 30) * 30))
-}
-function toTimeStr(min: number) {
-  return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
-}
-function overlaps(a: { s: number; e: number }, b: { s: number; e: number }) {
-  return a.s < b.e && a.e > b.s
-}
 
 // ─── Icon & color sets ───────────────────────────────────────────────────────
 interface IconDef { key: string; Icon: LucideIcon }
