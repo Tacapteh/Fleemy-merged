@@ -6225,6 +6225,19 @@ async def fcm_send(req: FcmSendRequest):
 # Include the router in the main app
 app.include_router(api_router)
 
+# Include modular route files
+from routes.auth import router as auth_router
+from routes.clients import router as clients_router
+from routes.todos import router as todos_router
+from routes.documents import router as documents_router
+from routes.notifications import router as notifications_router
+from routes.imports import router as imports_router
+from routes.planning import router as planning_router
+from routes.teams import router as teams_router
+
+for _r in (auth_router, clients_router, todos_router, documents_router, notifications_router, imports_router, planning_router, teams_router):
+    app.include_router(_r, prefix="/api")
+
 
 @app.get("/healthz")
 async def healthz() -> Dict[str, Any]:
