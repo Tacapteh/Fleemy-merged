@@ -5,7 +5,7 @@ import axios from 'axios'
 import { db } from '../services/firebase'
 import { apiClient } from '../services/api'
 import { useAuth } from './useAuth'
-import type { Team, TeamMember } from '../types'
+import type { Team } from '../types'
 
 const SOLO_KEY = 'fleemy:team:solo'
 
