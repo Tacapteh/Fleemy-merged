@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vitest/config'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
@@ -49,11 +49,6 @@ messaging.onBackgroundMessage((payload) => {
 
 export default defineConfig({
   plugins: [react(), firebaseSwPlugin()],
-  test: {
-    environment: 'node',
-    globals: false,
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-  },
   server: {
     port: 3000,
     proxy: {
